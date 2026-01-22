@@ -1,0 +1,178 @@
+﻿<Window x:Class="MarkovChainAnalyzer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Анализатор цепей Маркова" Height="536" Width="870"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="15,15,10,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="120"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="15"/>
+            <ColumnDefinition Width="2*"/>
+        </Grid.ColumnDefinitions>
+
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Введите текст для анализа:" FontWeight="Bold" Margin="0,0,15,5" Grid.ColumnSpan="2"/>
+
+        <TextBox Grid.Row="1" Grid.Column="0" Name="InputTextBox" 
+                 TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Grid.ColumnSpan="2" Margin="0,0,15,4">
+
+        </TextBox>
+
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,10"/>
+
+
+        <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Vertical" Margin="0,15,0,0">
+            <TextBlock Text="Генерация текста на основе цепей Маркова:" FontWeight="Bold" Margin="0,0,0,8"/>
+
+
+            <Border BorderBrush="Blue" BorderThickness="2" Background="#FFE6F3FF" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="ТЕКУЩЕЕ СОСТОЯНИЕ АВТОМАТА:" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,4"/>
+                    <TextBlock Name="CurrentStateTextBlock" Text="Idle" FontWeight="Bold" FontSize="14" Foreground="DarkBlue" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+
+
+
+
+            <Border BorderBrush="LightGray" BorderThickness="1" Background="#FFF0F8FF" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Текущий выбор слова:" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Name="SelectionInfoTextBlock" Text="Нет данных" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Поиск слова:" VerticalAlignment="Center" Margin="0,0,10,0" Width="80"/>
+                <TextBox Name="GenerationSearchTextBox" Width="150" VerticalAlignment="Center"
+                         TextChanged="GenerationSearchTextBox_TextChanged"
+                         ToolTip="Поиск слова для генерации"/>
+                <Button Name="ClearGenerationSearchButton" Content="X" Width="21" Margin="8,0,0,0"
+                        Click="ClearGenerationSearchButton_Click" ToolTip="Очистить поиск"
+                        Padding="5,2"/>
+            </StackPanel>
+
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Начальное слово:" VerticalAlignment="Center" Margin="0,0,10,0" Width="100"/>
+                <ComboBox Name="StartWordComboBox" Width="159" 
+                          DisplayMemberPath="Word" VerticalAlignment="Center" Height="26"/>
+            </StackPanel>
+
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Количество слов:" VerticalAlignment="Center" Margin="0,0,10,0" Width="100"/>
+                <TextBox Name="WordCountTextBox" Width="158" HorizontalContentAlignment="Center" Height="25">
+                    <TextBox.Text>20</TextBox.Text>
+                </TextBox>
+            </StackPanel>
+
+
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,8" HorizontalAlignment="Center"/>
+        </StackPanel>
+
+
+        <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Vertical" Margin="0,145,10,-167" Grid.RowSpan="2">
+
+            <TextBlock Text="Доступные переходы:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+            <DataGrid x:Name="AvailableTransitionsGrid" 
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      VerticalScrollBarVisibility="Auto" Height="136" Width="534">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Следующее слово" Binding="{Binding Key}" Width="*"/>
+                    <DataGridTextColumn Header="Количество" Binding="{Binding Value}" Width="80"/>
+                    <DataGridTextColumn Header="Вероятность" Binding="{Binding Probability}" Width="80"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+
+
+        <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="Статистика слов:" FontWeight="Bold"/>
+            <TextBox x:Name="SearchTextBox" Width="200" Margin="20,0,10,0" 
+                     VerticalAlignment="Center" TextChanged="SearchTextBox_TextChanged"
+                     ToolTip="Поиск слова в списке"/>
+            <Button x:Name="ClearSearchButton" Content="X" Width="25" 
+                    Click="ClearSearchButton_Click" ToolTip="Очистить поиск"
+                    Padding="5,2"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="1" Name="WordStatsGrid" 
+                  AutoGenerateColumns="False" IsReadOnly="True" 
+                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                  SelectionChanged="WordStatsGrid_SelectionChanged"
+                  MinHeight="150" Margin="0,0,9,311" Grid.RowSpan="3" Grid.Column="2">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Слово" Binding="{Binding Word}" Width="*"/>
+                <DataGridTextColumn Header="Частота" Binding="{Binding Frequency}" Width="80"/>
+                <DataGridTextColumn Header="Кол-во след. слов" Binding="{Binding NextWordsCount}" Width="120"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+
+        <TextBlock Grid.Row="2" Grid.Column="2"  
+                   FontWeight="Bold" Margin="0,10,0,5"/>
+
+        <DataGrid Grid.Row="4" Grid.Column="2" Name="TransitionsGrid" 
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  VerticalScrollBarVisibility="Auto"
+                  MinHeight="120" Margin="1376,378,-1376,-403">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Следующее слово" Binding="{Binding Key}" Width="*"/>
+                <DataGridTextColumn Header="Количество" Binding="{Binding Value}" Width="100"/>
+                <DataGridTextColumn Header="Вероятность" Binding="{Binding Probability}" Width="100"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+
+        <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="188,44,-188,164" Grid.RowSpan="3">
+            <TextBlock Text="Прогресс:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ProgressBar Name="GenerationProgressBar" Minimum="0" Maximum="100" Value="0" 
+                         Width="200" Height="20" VerticalAlignment="Center"/>
+            <TextBlock Name="ProgressTextBlock" Text="0/0" Margin="10,0,0,0" VerticalAlignment="Center"/>
+        </StackPanel>
+        <TextBlock Text="Результат генерации:" FontWeight="SemiBold" Grid.Column="2" Margin="0,15,420,285" Grid.Row="3"/>
+        <TextBox x:Name="GeneratedTextBox_Копировать1" 
+                TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                FontFamily="Consolas" FontSize="12"
+                Background="#FFF5F5F5" BorderThickness="1" Padding="8" Grid.Column="2" Margin="0,38,420,178" Grid.Row="3"/>
+        <TextBox x:Name="GeneratedTextBox_Копировать" 
+                TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                FontFamily="Consolas" FontSize="12"
+                Background="#FFF5F5F5" BorderThickness="1" Padding="8" Grid.Column="2" Margin="0,38,420,178" Grid.Row="3"/>
+        <TextBox x:Name="GeneratedTextBox_Копировать3" 
+                TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                FontFamily="Consolas" FontSize="12"
+                Background="#FFF5F5F5" BorderThickness="1" Padding="8" Grid.Column="2" Margin="0,38,420,178" Grid.Row="3"/>
+        <TextBox x:Name="GeneratedTextBox_Копировать2" 
+                TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                FontFamily="Consolas" FontSize="12"
+                Background="#FFF5F5F5" BorderThickness="1" Padding="8" Grid.Column="2" Margin="0,38,420,178" Grid.Row="3"/>
+        <TextBox x:Name="GeneratedTextBox" 
+                     TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                     FontFamily="Consolas" FontSize="12"
+                     Background="#FFF5F5F5" BorderThickness="1" Padding="8" Margin="0,38,10,178" Grid.Column="2" Grid.Row="3"/>
+        <Button x:Name="GenerateStepButton" Content="Шаг" 
+                        Click="GenerateStepButton_Click" Padding="15,8" Margin="0,263,216,0" Grid.Row="3" Height="38" VerticalAlignment="Top"/>
+        <Button x:Name="StartAutoButton" Content="Авто" 
+                        Click="StartAutoButton_Click" Padding="15,8" Margin="72,263,142,0" Grid.Row="3" Height="38" VerticalAlignment="Top"/>
+        <Button x:Name="StopAutoButton" Content="Стоп" 
+                        Click="StopAutoButton_Click" Padding="15,8" Margin="144,263,74,0" Grid.Row="3" Height="38" VerticalAlignment="Top"/>
+        <Button x:Name="ResetButton" Content="Сброс" 
+                        Click="ResetButton_Click" Padding="15,8" Margin="208,263,4,0" Grid.Row="3" Height="38" VerticalAlignment="Top"/>
+        <Button x:Name="AnalyzeButton" Content="Анализировать" Click="AnalyzeButton_Click" 
+                    Padding="15,8" Margin="10,2,143,0" Grid.Row="2" Height="39" VerticalAlignment="Top" Grid.RowSpan="2"/>
+        <Button x:Name="LoadFileButton" Content="Загрузить(файл)" Click="LoadFileButton_Click" 
+                    Padding="15,8" Margin="142,2,0,0" Grid.Row="2" HorizontalAlignment="Left" Width="125" Height="39" VerticalAlignment="Top" Grid.RowSpan="2"/>
+    </Grid>
+</Window>

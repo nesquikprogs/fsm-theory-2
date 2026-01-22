@@ -1,0 +1,129 @@
+﻿<Window x:Class="ATMMachine.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Банкомат" Height="600" Width="900">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+
+        <Border Grid.Column="0" Background="LightGray" Margin="5">
+            <StackPanel Margin="10">
+                <TextBlock Text="СОСТОЯНИЯ АВТОМАТА" FontSize="16" FontWeight="Bold" 
+                          HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+                <Border Background="White" BorderBrush="DarkGray" BorderThickness="1" 
+                       Padding="10" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="Текущее состояние:" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="CurrentStateText" Text="Простаивает" FontSize="14" 
+                                  FontWeight="Bold" Foreground="DarkBlue"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="White" BorderBrush="DarkGray" BorderThickness="1" 
+                       Padding="10" Height="300">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="История состояний:" FontWeight="Bold" Margin="0,0,0,5"/>
+                            <ItemsControl x:Name="StatesHistoryList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Margin="0,2" FontSize="11"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </Border>
+
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+
+            <Border Grid.Row="0" Background="LightBlue" Padding="10">
+                <TextBlock x:Name="StatusText" FontSize="16" FontWeight="Bold" 
+                          TextAlignment="Center" Text="Добро пожаловать!"/>
+            </Border>
+
+
+            <Border Grid.Row="1" Background="White" Margin="10" 
+                   BorderBrush="Gray" BorderThickness="1">
+                <ScrollViewer>
+                    <StackPanel x:Name="DisplayPanel" Margin="20">
+                        <TextBlock x:Name="MessageText" FontSize="14" TextWrapping="Wrap"
+                                  Text="Вставьте карту для начала работы"/>
+                        <TextBlock x:Name="DetailsText" FontSize="12" TextWrapping="Wrap"
+                                  Margin="0,10,0,0" Foreground="DarkGray"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+
+        <Border Grid.Column="2" Background="LightGray" Margin="5">
+            <StackPanel x:Name="ControlPanel" Margin="10">
+
+                <GroupBox Header="Операции с картой" Margin="0,0,0,10">
+                    <StackPanel>
+                        <Button x:Name="InsertCardBtn" Content="Вставить карту" 
+                               Click="InsertCardBtn_Click" Margin="2" Height="30"/>
+                        <Button x:Name="EjectCardBtn" Content="Вернуть карту" 
+                               Click="EjectCardBtn_Click" Margin="2" Height="30" IsEnabled="False"/>
+                    </StackPanel>
+                </GroupBox>
+
+
+                <GroupBox x:Name="PinGroup" Header="Ввод ПИН-кода" Margin="0,0,0,10" Visibility="Collapsed">
+                    <StackPanel>
+                        <PasswordBox x:Name="PinBox" Margin="2" Height="25"/>
+                        <Button x:Name="EnterPinBtn" Content="Ввести ПИН" 
+                               Click="EnterPinBtn_Click" Margin="2" Height="30"/>
+                    </StackPanel>
+                </GroupBox>
+
+
+                <GroupBox x:Name="TransactionGroup" Header="Выбор операции" 
+                         Margin="0,0,0,10" Visibility="Collapsed">
+                    <StackPanel>
+                        <Button x:Name="WithdrawBtn" Content="Снять наличные" 
+                               Click="WithdrawBtn_Click" Margin="2" Height="30"/>
+                        <Button x:Name="BalanceBtn" Content="Получить справку" 
+                               Click="BalanceBtn_Click" Margin="2" Height="30"/>
+                        <Button x:Name="TransferBtn" Content="Перевод" 
+                               Click="TransferBtn_Click" Margin="2" Height="30"/>
+                    </StackPanel>
+                </GroupBox>
+
+
+                <GroupBox x:Name="AmountGroup" Header="Сумма" Margin="0,0,0,10" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBox x:Name="AmountBox" Margin="2" Height="25" Text="1000"/>
+                        <Button x:Name="ConfirmAmountBtn" Content="Подтвердить" 
+                               Click="ConfirmAmountBtn_Click" Margin="2" Height="30"/>
+                    </StackPanel>
+                </GroupBox>
+
+
+                <StackPanel>
+                    <Button x:Name="CancelBtn" Content="Отмена" 
+                           Click="CancelBtn_Click" Margin="2" Height="30" Background="LightCoral"/>
+                    <Button x:Name="ContinueBtn" Content="Продолжить" 
+                           Click="ContinueBtn_Click" Margin="2" Height="30" Background="LightGreen" Visibility="Collapsed"/>
+                    <!-- Добавили кнопку печати чека -->
+                    <Button x:Name="PrintReceiptBtn" Content="Напечатать чек" 
+                           Click="PrintReceiptBtn_Click" Margin="2" Height="30" Background="LightYellow" Visibility="Collapsed"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,28 @@
+﻿<Window x:Class="HockeyGame.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:HockeyGame"
+        mc:Ignorable="d"
+        Title="Хоккейная игра - 6x6" Height="700" Width="1200" KeyDown="Window_KeyDown">
+    <Grid>
+        <Canvas x:Name="GameCanvas" MouseDown="GameCanvas_MouseDown" 
+                MouseMove="GameCanvas_MouseMove"
+                Background="LightBlue">
+            <Canvas.Resources>
+                <Style TargetType="Ellipse">
+                    <Setter Property="Stroke" Value="Black"/>
+                    <Setter Property="StrokeThickness" Value="2"/>
+                </Style>
+            </Canvas.Resources>
+        </Canvas>
+
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right" 
+                   Margin="10" Background="White" Opacity="0.8">
+            <TextBlock x:Name="ScoreText" Text="Счет: 0 - 0" FontWeight="Bold"/>
+            <TextBlock x:Name="StateText" Text="Состояние: Idle"/>
+
+        </StackPanel>
+    </Grid>
+</Window>

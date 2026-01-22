@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>СМО на конечном автомате</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#e9eef3;margin:0;padding:20px;}
+  h1{text-align:center;margin-bottom:20px;font-size:24px;}
+  .panel{background:#fff;padding:15px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-bottom:20px;}
+  .controls{display:flex;flex-wrap:wrap;gap:15px;align-items:center;justify-content:center;}
+  button{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;background:#2d6cdf;color:#fff;font-size:14px;}
+  button:disabled{background:#9bb7e0;}
+  label{font-size:14px;color:#333;}
+  input[type=range]{width:120px;}
+  .machines{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;}
+  .machine{background:#fff;padding:15px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.1);width:260px;}
+  .title{font-size:18px;margin-bottom:10px;}
+  .queue{font-size:13px;margin-bottom:10px;color:#555;}
+  .server{padding:8px;border-radius:8px;margin-bottom:8px;background:#f0f3f7;box-shadow:inset 0 0 4px rgba(0,0,0,0.1);}
+  .state{font-weight:bold;}
+  .ready{color:green;}
+  .working{color:#d92323;}
+  .stopped{color:#555;}
+  .reset{color:orange;}
+  .progress{margin-top:4px;height:6px;background:#ddd;border-radius:4px;overflow:hidden;}
+  .bar{height:100%;background:#2d6cdf;width:0%;}
+  #chart{background:#fff;border-radius:10px;padding:10px;box-shadow:0 2px 6px rgba(0,0,0,0.1);width:100%;max-width:900px;margin:20px auto;}
+</style>
+</head>
+<body>
+<h1>Система массового обслуживания</h1>
+<div class="panel">
+  <div class="controls">
+    <button id="startBtn">Старт</button>
+    <button id="stopBtn" disabled>Пауза</button>
+    <button id="resetBtn">Сброс</button>
+
+    <!-- Ползунок интенсивности заявок -->
+    <label>Интенсивность: <span id="rateVal">0.8</span>
+      <input id="rate" type="range" min="0.1" max="5" step="0.1" value="0.8" />
+    </label>
+
+    <!-- Ползунок среднего времени обслуживания -->
+    <label>Среднее время: <span id="srvVal">4.0s</span>
+      <input id="servMean" type="range" min="0.5" max="10" step="0.1" value="4" />
+    </label>
+
+    <!-- Ползунок максимальной длины очереди -->
+    <label>Максимальная очередь: <span id="queueVal">20</span>
+      <input id="maxQueueSlider" type="range" min="5" max="50" step="1" value="20" />
+    </label>
+  </div>
+</div>
+
+<div class="machines">
+  <div class="machine">
+    <div class="title">FIFO</div>
+    <div class="queue">Очередь: <span id="qFifo">0</span></div>
+    <div id="serversFifo"></div>
+  </div>
+  <div class="machine">
+    <div class="title">LIFO</div>
+    <div class="queue">Очередь: <span id="qLifo">0</span></div>
+    <div id="serversLifo"></div>
+  </div>
+  <div class="machine">
+    <div class="title">Статистика</div>
+    <div class="queue">Пришло: <span id="arrived">0</span></div>
+    <div class="queue">Обслужено FIFO: <span id="doneFifo">0</span></div>
+    <div class="queue">Обслужено LIFO: <span id="doneLifo">0</span></div>
+    <div class="queue">Отброшено: <span id="dropped">0</span></div>
+  </div>
+</div>
+
+<canvas id="chart" height="200"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Инициализация начальных значений симуляции
+let sim = {
+  time:0,                  // текущее время симуляции
+  rate:0.8,                // интенсивность потока заявок (λ)
+  servMean:4,              // среднее время обслуживания
+  fifoQueue:[], lifoQueue:[], // очереди 
+  serversFifo:[], serversLifo:[], // серверы 
+  arrived:0, doneFifo:0, doneLifo:0, dropped:0, // статистика
+  maxQueue:20,             // максимальная длина очереди
+  running:false            // флаг работы симуляции
+};
+
+// Инициализация серверов 
+function initServers(){
+  sim.serversFifo = [];
+  sim.serversLifo = [];
+  for(let i=0;i<3;i++){
+    sim.serversFifo.push({state:"ready",remaining:0,currentReqId:null});
+    sim.serversLifo.push({state:"ready",remaining:0,currentReqId:null});
+  }
+}
+initServers();
+
+// Случайное экспоненциальное время обслуживания 
+function expTime(mean){ return -mean*Math.log(Math.random()); }
+function createRequest(){ return {id:Date.now()+Math.random()}; }
+
+// Генерация заявок 
+function tryGenerate(dt){
+  let p = sim.rate * dt; // вероятность появления заявки пропорциональна dt
+  if(Math.random()<p){
+    sim.arrived++;
+    // Добавляем в очередь FIFO, если не переполнена
+    if(sim.fifoQueue.length<sim.maxQueue) sim.fifoQueue.push(createRequest()); else sim.dropped++;
+    // Добавляем в очередь LIFO, если не переполнена
+    if(sim.lifoQueue.length<sim.maxQueue) sim.lifoQueue.push(createRequest()); else sim.dropped++;
+  }
+}
+
+// Попытка стартовать обслуживание серверов 
+function tryStartServices(){
+  for(const s of sim.serversFifo){
+    if(s.state==="ready" && sim.fifoQueue.length>0){
+      const r = sim.fifoQueue.shift(); // FIFO: берём с начала
+      s.state="working";
+      s.currentReqId=r.id;
+      s.remaining=expTime(sim.servMean);
+    }
+  }
+  for(const s of sim.serversLifo){
+    if(s.state==="ready" && sim.lifoQueue.length>0){
+      const r = sim.lifoQueue.pop(); // LIFO: берём с конца
+      s.state="working";
+      s.currentReqId=r.id;
+      s.remaining=expTime(sim.servMean);
+    }
+  }
+}
+
+// Прогресс обслуживания 
+function progressInService(dt){
+  for(const s of sim.serversFifo){
+    if(s.state==="working"){
+      s.remaining-=dt;
+      if(s.remaining<=0){
+        s.state="ready"; 
+        sim.doneFifo++;
+        s.currentReqId=null;
+      }
+    }
+  }
+  for(const s of sim.serversLifo){
+    if(s.state==="working"){
+      s.remaining-=dt;
+      if(s.remaining<=0){
+        s.state="ready"; 
+        sim.doneLifo++;
+        s.currentReqId=null;
+      }
+    }
+  }
+}
+
+// Обновление интерфейса 
+function updateViews(){
+  document.getElementById("qFifo").textContent=sim.fifoQueue.length;
+  document.getElementById("qLifo").textContent=sim.lifoQueue.length;
+  document.getElementById("arrived").textContent=sim.arrived;
+  document.getElementById("doneFifo").textContent=sim.doneFifo;
+  document.getElementById("doneLifo").textContent=sim.doneLifo;
+  document.getElementById("dropped").textContent=sim.dropped;
+  renderServers("serversFifo",sim.serversFifo);
+  renderServers("serversLifo",sim.serversLifo);
+  pushChart();
+}
+
+// Отображение серверов с прогрессом 
+function renderServers(blockId,servers){
+  const box=document.getElementById(blockId);
+  box.innerHTML="";
+  for(const s of servers){
+    const d=document.createElement("div");
+    d.className="server";
+    d.innerHTML=`<div class="state ${s.state}">Состояние: ${s.state}</div>${s.state==="working"?`<div class='progress'><div class='bar' style='width:${(1-s.remaining/sim.servMean)*100}%'></div></div>`:``}`;
+    box.appendChild(d);
+  }
+}
+
+// График загруженности 
+const ctx=document.getElementById("chart").getContext("2d");
+const chart=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'FIFO',data:[],borderColor:'#2d6cdf',fill:false},{label:'LIFO',data:[],borderColor:'#d92323',fill:false}]},options:{animation:false,scales:{x:{title:{display:true,text:'t (s)'}},y:{title:{display:true,text:'Заявки в системе'}}}}});
+function pushChart(){
+  chart.data.labels.push(sim.time.toFixed(1));
+  chart.data.datasets[0].data.push(sim.fifoQueue.length+sim.serversFifo.filter(s=>s.state==="working").length);
+  chart.data.datasets[1].data.push(sim.lifoQueue.length+sim.serversLifo.filter(s=>s.state==="working").length);
+  if(chart.data.labels.length>200){chart.data.labels.shift();chart.data.datasets[0].data.shift();chart.data.datasets[1].data.shift();}
+  chart.update('none');
+}
+
+// Главный цикл симуляции 
+let lastTime=performance.now();
+function loop(now){
+  if(sim.running){
+    const dt=(now-lastTime)/1000;
+    sim.time+=dt;
+    tryGenerate(dt);       // генерация заявок
+    tryStartServices();    // попытка стартовать сервисы
+    progressInService(dt); // прогресс обслуживания
+    updateViews();         // обновление интерфейса
+  }
+  lastTime=now;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// Управление кнопками 
+startBtn.onclick=()=>{sim.running=true;startBtn.disabled=true;stopBtn.disabled=false;};
+stopBtn.onclick=()=>{sim.running=false;startBtn.disabled=false;stopBtn.disabled=true;};
+resetBtn.onclick=()=>{
+  sim.running=false;startBtn.disabled=false;stopBtn.disabled=true;
+  sim.time=0; sim.arrived=0; sim.doneFifo=0; sim.doneLifo=0; sim.dropped=0;
+  sim.fifoQueue=[]; sim.lifoQueue=[];
+  initServers();
+  updateViews();
+};
+
+// Обновление параметров через ползунки 
+rate.oninput=()=>{sim.rate=parseFloat(rate.value);rateVal.textContent=sim.rate.toFixed(1);};
+servMean.oninput=()=>{sim.servMean=parseFloat(servMean.value);srvVal.textContent=sim.servMean.toFixed(1)+"s";};
+const maxQueueSlider = document.getElementById('maxQueueSlider');
+const queueVal = document.getElementById('queueVal');
+maxQueueSlider.oninput = ()=>{
+  sim.maxQueue = parseInt(maxQueueSlider.value);
+  queueVal.textContent = sim.maxQueue;
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализатор цепей Маркова</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            color: #000;
+            background: #fff;
+            padding: 15px;
+            font-size: 14px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 22px; }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 20px 2fr;
+            gap: 20px;
+        }
+        .section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 15px;
+            border-bottom: 1px solid #aaa;
+            padding-bottom: 5px;
+        }
+
+        textarea, input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #999;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        textarea { resize: vertical; min-height: 100px; font-family: monospace; }
+
+        button {
+            padding: 8px 12px;
+            margin: 5px 5px 5px 0;
+            border: 1px solid #999;
+            background: #eee;
+            cursor: pointer;
+        }
+        button:disabled { background: #f0f0f0; color: #999; cursor: default; }
+
+        .control-panel { margin: 10px 0; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: left;
+        }
+        th { background: #f0f0f0; }
+
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 12px;
+            border: 1px solid #999;
+            background: #fff;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #ccc;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .search-box input { flex: 1; min-width: 150px; }
+
+        .kmp-section { border: 1px solid #ccc; padding: 15px; margin-top: 20px; }
+
+        @media (max-width: 1200px) {
+            .grid-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Анализатор цепей Маркова</h1>
+
+        <div class="grid-container">
+            <!-- Левая колонка -->
+            <div class="left-column">
+                <div class="section">
+                    <div class="section-title">Введите текст для анализа:</div>
+                    <textarea id="inputText"></textarea>
+                    <div class="control-panel">
+                        <button id="analyzeBtn">Анализировать текст</button>
+                        <button id="loadFileBtn">Загрузить из файла</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Генерация</div>
+                    <div>Состояние: <span id="currentState">Idle - Ожидание</span></div>
+                    <div>Текущий выбор слова: <span id="selectionInfo">Нет данных</span></div>
+
+                    <div class="search-box">
+                        <span>Поиск слова:</span>
+                        <input type="text" id="generationSearch">
+                        <button id="clearGenerationSearch">X</button>
+                    </div>
+
+                    <div class="search-box">
+                        <span>Начальное слово:</span>
+                        <select id="startWord"></select>
+                    </div>
+
+                    <div class="search-box">
+                        <span>Количество слов:</span>
+                        <input type="number" id="wordCount" value="20" min="1">
+                    </div>
+
+                    <div class="control-panel">
+                        <button id="generateStepBtn">Сделать шаг</button>
+                        <button id="startAutoBtn">Авто генерация</button>
+                        <button id="stopAutoBtn" disabled>Остановить авто</button>
+                        <button id="resetBtn">Сброс</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Результат генерации:</div>
+                    <textarea id="generatedText" readonly></textarea>
+
+                    <div class="section-title">Доступные переходы:</div>
+                    <div class="table-container">
+                        <table id="availableTransitions">
+                            <thead>
+                                <tr><th>#</th><th>Следующее слово</th><th>Количество</th><th>Вероятность</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Правая колонка -->
+            <div class="right-column">
+                <div class="section">
+                    <div class="search-box">
+                        <span class="section-title">Статистика слов:</span>
+                        <input type="text" id="wordSearch" placeholder="Поиск слова">
+                        <button id="clearSearch">X</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="wordStats">
+                            <thead>
+                                <tr><th>#</th><th>Слово</th><th>Частота</th><th>Кол-во след. слов</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Переходы выбранного слова:</div>
+                    <div class="table-container">
+                        <table id="transitionsTable">
+                            <thead>
+                                <tr><th>#</th><th>Следующее слово</th><th>Количество</th><th>Вероятность</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="progress-container">
+                        <span>Прогресс:</span>
+                        <div class="progress-bar"><div id="generationProgress" class="progress-fill" style="width:0%"></div></div>
+                        <span id="progressText">0/0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Поиск КМП -->
+        <div class="kmp-section">
+            <div class="section-title">Поиск подстроки (КМП)</div>
+            <div class="search-box">
+                <span>Искомая подстрока:</span>
+                <input type="text" id="searchPattern">
+                <button id="startSearchBtn">Начать поиск</button>
+                <button id="resetSearchBtn">Сброс поиска</button>
+            </div>
+
+            <div>Состояние: <span id="searchState">Ожидание</span></div>
+
+            <div id="searchDetails" style="display:none; font-family:monospace; font-size:12px; margin:10px 0;">
+                <div>Индекс в тексте: <span id="currentTextIndex">0</span></div>
+                <div>Индекс в паттерне: <span id="currentPatternIndex">0</span></div>
+                <div>Сравнений: <span id="comparisonsCount">0</span></div>
+                <div>Префикс-функция: <span id="prefixFunction">[]</span></div>
+                <div>Шаг: <span id="stepDetails">-</span></div>
+            </div>
+
+            <div>Результат: <span id="searchResult">Поиск не выполнялся</span></div>
+
+            <div id="occurrencesContainer" style="display:none; margin-top:10px;">
+                <div>Найденные вхождения:</div>
+                <div id="occurrencesList"></div>
+            </div>
+
+            <div class="progress-container">
+                <span>Прогресс поиска:</span>
+                <div class="progress-bar"><div id="searchProgress" class="progress-fill" style="width:0%"></div></div>
+                <span id="searchProgressText">0/0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        //Перечисления состояний
+        const GenerationState = {
+            Idle: 'Idle',
+            SelectingWord: 'SelectingWord',
+            WordSelected: 'WordSelected',
+            SelectingNextWord: 'SelectingNextWord',
+            NextWordSelected: 'NextWordSelected',
+            Completed: 'Completed',
+            Error: 'Error'
+        };
+
+        const KMPSearchState = {
+            Idle: 'Idle',             // Ожидание
+            ComputingPrefix: 'ComputingPrefix',  // Вычисление префикс-функции
+            Searching: 'Searching',   // Поиск в тексте
+            Found: 'Found',           // Найдено (не используется напрямую, см. Completed)
+            NotFound: 'NotFound',     // Не найдено
+            Error: 'Error',           // Ошибка
+            Completed: 'Completed'    // Завершено с результатами
+};
+
+        //Класс автомата поиска КМП
+        class KMPSearchFSM {
+            constructor() {
+                this.pattern = ''; // Искомая подстрока
+                this.text = ''; // Текст для поиска
+                this.prefixFunction = []; // Префикс-функции ??
+                this.currentPatternIndex = 0; // ИНдекс в паттерне
+                this.currentTextIndex = 0; // Индекс в тексте 
+                this.comparisons = 0; 
+                this.currentState = KMPSearchState.Idle; // Начальное состояние
+                this.occurrences = [];
+                this.stepDetails = '';
+                this.result = {
+                    found: false,
+                    positions: [],
+                    comparisons: 0,
+                    prefixFunction: [],
+                    currentState: '',
+                    details: ''
+                };
+                this.stateChangedCallbacks = [];
+                this.searchProgressChangedCallbacks = [];
+            }
+
+            // Уведомления об изменениях
+            onStateChanged(callback) {
+                this.stateChangedCallbacks.push(callback);
+            }
+
+            onSearchProgressChanged(callback) {
+                this.searchProgressChangedCallbacks.forEach(cb => this.searchProgressChangedCallbacks.delete(cb));
+                this.searchProgressChangedCallbacks.push(callback);
+            }
+
+            notifyStateChanged() {
+                this.stateChangedCallbacks.forEach(callback => callback(this.currentState));
+            }
+
+            notifySearchProgressChanged() {
+                const detailedState = this.getDetailedState();
+                this.searchProgressChangedCallbacks.forEach(callback => callback(detailedState));
+            }
+
+            // Запуск поиска
+            startSearch(pattern, text) {
+                this.pattern = pattern;
+                this.text = text;
+                this.currentPatternIndex = 0;
+                this.currentTextIndex = 0;
+                this.comparisons = 0;
+                this.prefixFunction = [];
+                this.occurrences = [];
+                this.stepDetails = 'Инициализация поиска...';
+                this.result = {
+                    found: false,
+                    positions: [],
+                    comparisons: 0,
+                    prefixFunction: [],
+                    currentState: '',
+                    details: ''
+                };
+
+                if (!pattern || !text) {
+                    this.result.currentState = 'Ошибка: пустая строка или текст';
+                    this.result.details = 'Проверьте введенные данные';
+                    this.transitionToState(KMPSearchState.Error);
+                    return;
+                }
+
+                if (pattern.length > text.length) {
+                    this.result.currentState = 'Ошибка: паттерн длиннее текста';
+                    this.result.details = 'Искомая подстрока не может быть длиннее текста';
+                    this.transitionToState(KMPSearchState.Error);
+                    return;
+                }
+
+                this.stepDetails = 'Начинаем вычисление префикс-функции';
+                this.transitionToState(KMPSearchState.ComputingPrefix);
+                this.notifySearchProgressChanged();
+            }
+
+            // Основной шаг
+            computeNextStep() {
+                switch (this.currentState) {
+                    case KMPSearchState.ComputingPrefix:
+                        this.computePrefixFunctionStep(); // Шаг вычисление префикса
+                        break;
+                    case KMPSearchState.Searching:
+                        this.performSearchStep(); // Шаг поиска
+                        break;
+                }
+            }
+
+            // Вычисление префикс-функции
+            computePrefixFunctionStep() {
+                try {
+                    if (this.prefixFunction.length === 0) {
+                        this.prefixFunction = new Array(this.pattern.length).fill(0);
+                        this.prefixFunction[0] = 0;
+                        this.currentPatternIndex = 1;
+                        this.currentTextIndex = 0;
+                        this.stepDetails = 'Инициализация префикс-функции: п[0] = 0';
+                    }
+
+                    if (this.currentPatternIndex < this.pattern.length) {
+                        this.comparisons++;
+                        
+                        if (this.pattern[this.currentPatternIndex] === this.pattern[this.currentTextIndex]) {
+                            this.prefixFunction[this.currentPatternIndex] = this.currentTextIndex + 1;
+                            this.stepDetails = `Совпадение: pattern[${this.currentPatternIndex}] == pattern[${this.currentTextIndex}], п[${this.currentPatternIndex}] = ${this.currentTextIndex + 1}`;
+                            this.currentPatternIndex++;
+                            this.currentTextIndex++;
+                        } else if (this.currentTextIndex > 0) {
+                            this.stepDetails = `Несовпадение: pattern[${this.currentPatternIndex}] != pattern[${this.currentTextIndex}], переход п[${this.currentTextIndex - 1}] = ${this.prefixFunction[this.currentTextIndex - 1]}`;
+                            this.currentTextIndex = this.prefixFunction[this.currentTextIndex - 1];
+                        } else {
+                            this.prefixFunction[this.currentPatternIndex] = 0;
+                            this.stepDetails = `Несовпадение: pattern[${this.currentPatternIndex}] != pattern[0], п[${this.currentPatternIndex}] = 0`;
+                            this.currentPatternIndex++;
+                        }
+
+                        this.updateProgress();
+                    } else {
+                        this.currentPatternIndex = 0;
+                        this.currentTextIndex = 0;
+                        this.comparisons = 0;
+                        this.stepDetails = 'Префикс-функция вычислена, начинаем поиск в тексте';
+                        this.transitionToState(KMPSearchState.Searching);
+                    }
+                } catch (ex) {
+                    this.result.currentState = `Ошибка при вычислении префикс-функции: ${ex.message}`;
+                    this.result.details = ex.stack;
+                    this.transitionToState(KMPSearchState.Error);
+                }
+            }
+
+            // Поиск в тексте пошагово
+            performSearchStep() {
+                try {
+                    if (this.currentTextIndex < this.text.length) {
+                        this.comparisons++;
+
+                        if (this.pattern[this.currentPatternIndex] === this.text[this.currentTextIndex]) {
+                            this.currentPatternIndex++;
+                            this.currentTextIndex++;
+                            this.stepDetails = `Совпадение: pattern[${this.currentPatternIndex-1}] == text[${this.currentTextIndex-1}]`;
+
+                            if (this.currentPatternIndex === this.pattern.length) {
+                                //Найдено вхождение
+                                const position = this.currentTextIndex - this.pattern.length;
+                                this.occurrences.push(position);
+                                this.stepDetails = `Найдено вхождение в позиции ${position}!`;
+                                
+                                //Продолжаем поиск следующих вхождений
+                                this.currentPatternIndex = this.prefixFunction[this.currentPatternIndex - 1];
+                                
+                                if (this.currentPatternIndex === 0) {
+                                    this.currentTextIndex++;
+                                }
+                            }
+                        } else {
+                            if (this.currentPatternIndex !== 0) {
+                                this.stepDetails = `Несовпадение: pattern[${this.currentPatternIndex}] != text[${this.currentTextIndex}], переход π[${this.currentPatternIndex - 1}] = ${this.prefixFunction[this.currentPatternIndex - 1]}`;
+                                this.currentPatternIndex = this.prefixFunction[this.currentPatternIndex - 1];
+                            } else {
+                                this.stepDetails = `Несовпадение: pattern[0] != text[${this.currentTextIndex}], переход к следующему символу`;
+                                this.currentTextIndex++;
+                            }
+                        }
+
+                        this.updateProgress();
+
+                        //Проверяем завершение поиска
+                        if (this.currentTextIndex >= this.text.length) {
+                            this.finalizeSearch();
+                        }
+                    } else {
+                        this.finalizeSearch();
+                    }
+                } catch (ex) {
+                    this.result.currentState = `Ошибка при поиске: ${ex.message}`;
+                    this.result.details = ex.stack;
+                    this.transitionToState(KMPSearchState.Error);
+                }
+            }
+
+            // Финализация результатов 
+            finalizeSearch() {
+                this.result.found = this.occurrences.length > 0;
+                this.result.positions = [...this.occurrences];
+                this.result.comparisons = this.comparisons;
+                this.result.prefixFunction = [...this.prefixFunction];
+                
+                if (this.occurrences.length > 0) {
+                    this.result.currentState = `Найдено ${this.occurrences.length} вхождений`;
+                    this.result.details = `Поиск завершен. Найдено вхождений: ${this.occurrences.length}`;
+                    this.stepDetails = `Поиск завершен. Всего вхождений: ${this.occurrences.length}`;
+                    this.transitionToState(KMPSearchState.Completed);
+                } else {
+                    this.result.currentState = 'Вхождения не найдены';
+                    this.result.details = 'Поиск завершен. Вхождений не найдено';
+                    this.stepDetails = 'Поиск завершен. Вхождений не найдено';
+                    this.transitionToState(KMPSearchState.NotFound);
+                }
+                this.notifySearchProgressChanged();
+            }
+
+            updateProgress() {
+                this.notifySearchProgressChanged();
+            }
+
+            reset() {
+                this.pattern = '';
+                this.text = '';
+                this.prefixFunction = [];
+                this.currentPatternIndex = 0;
+                this.currentTextIndex = 0;
+                this.comparisons = 0;
+                this.occurrences = [];
+                this.stepDetails = '';
+                this.result = {
+                    found: false,
+                    positions: [],
+                    comparisons: 0,
+                    prefixFunction: [],
+                    currentState: '',
+                    details: ''
+                };
+                this.transitionToState(KMPSearchState.Idle);
+                this.notifySearchProgressChanged();
+            }
+
+            // Переход между состояниям
+            transitionToState(newState) {
+                this.currentState = newState;
+                this.notifyStateChanged();
+                this.notifySearchProgressChanged();
+            }
+
+            getStatusMessage() {
+                const stateBadges = {
+                    [KMPSearchState.Idle]: '<span class="state-badge state-idle">IDLE</span>',
+                    [KMPSearchState.ComputingPrefix]: '<span class="state-badge state-computing">COMPUTING_PREFIX</span>',
+                    [KMPSearchState.Searching]: '<span class="state-badge state-searching">SEARCHING</span>',
+                    [KMPSearchState.Completed]: '<span class="state-badge state-found">COMPLETED</span>',
+                    [KMPSearchState.NotFound]: '<span class="state-badge state-idle">NOT_FOUND</span>',
+                    [KMPSearchState.Error]: '<span class="state-badge state-error">ERROR</span>'
+                };
+
+                const badge = stateBadges[this.currentState] || '<span class="state-badge state-idle">UNKNOWN</span>';
+                
+                switch (this.currentState) {
+                    case KMPSearchState.Idle:
+                        return `${badge} Ожидание начала поиска`;
+                    case KMPSearchState.ComputingPrefix:
+                        return `${badge} Вычисление префикс-функции: ${this.currentPatternIndex}/${this.pattern.length}`;
+                    case KMPSearchState.Searching:
+                        return `${badge} Поиск: ${this.currentTextIndex}/${this.text.length}, найдено: ${this.occurrences.length}`;
+                    case KMPSearchState.Completed:
+                        return `${badge} Поиск завершен! Найдено ${this.occurrences.length} вхождений`;
+                    case KMPSearchState.NotFound:
+                        return `${badge} Вхождения не найдены`;
+                    case KMPSearchState.Error:
+                        return `${badge} Ошибка: ${this.result.currentState}`;
+                    default:
+                        return `${badge} Неизвестное состояние`;
+                }
+            }
+
+            getDetailedState() {
+                //Обрезаем префикс-функцию до текущего прогресса
+                const displayedPrefixFunction = this.prefixFunction.slice(0, this.currentPatternIndex + 1);
+                
+                return {
+                    state: this.currentState,
+                    patternIndex: this.currentPatternIndex,
+                    textIndex: this.currentTextIndex,
+                    comparisons: this.comparisons,
+                    prefixFunction: displayedPrefixFunction,
+                    occurrences: this.occurrences,
+                    stepDetails: this.stepDetails,
+                    patternLength: this.pattern.length,
+                    textLength: this.text.length
+                };
+            }
+
+            getProgress() {
+                if (this.currentState === KMPSearchState.ComputingPrefix && this.pattern) {
+                    return (this.currentPatternIndex / this.pattern.length) * 100;
+                } else if (this.currentState === KMPSearchState.Searching && this.text) {
+                    return (this.currentTextIndex / this.text.length) * 100;
+                }
+                return 0;
+            }
+
+            getProgressText() {
+                if (this.currentState === KMPSearchState.ComputingPrefix && this.pattern) {
+                    return `${this.currentPatternIndex}/${this.pattern.length}`;
+                } else if (this.currentState === KMPSearchState.Searching && this.text) {
+                    return `${this.currentTextIndex}/${this.text.length}`;
+                }
+                return '0/0';
+            }
+        }
+
+        //Класс анализатора цепей Маркова 
+        class MarkovChainAnalyzer {
+            constructor() {
+                this.transitions = new Map();
+                this.wordFrequencies = new Map();
+            }
+
+            analyzeText(text) {
+                this.transitions.clear();
+                this.wordFrequencies.clear();
+
+                const words = text.toLowerCase()
+                    .split(/\s+/)
+                    .filter(word => word.trim() !== '')
+                    .map(word => word.replace(/[^\wа-яА-Я-]/g, ''))
+                    .filter(word => word !== '');
+
+                if (words.length < 2) {
+                    throw new Error('Текст должен содержать как минимум 2 слова');
+                }
+
+                for (let i = 0; i < words.length - 1; i++) {
+                    const currentWord = words[i];
+                    const nextWord = words[i + 1];
+
+                    this.wordFrequencies.set(currentWord, (this.wordFrequencies.get(currentWord) || 0) + 1);
+
+                    if (!this.transitions.has(currentWord)) {
+                        this.transitions.set(currentWord, new Map());
+                    }
+                    const wordTransitions = this.transitions.get(currentWord);
+                    wordTransitions.set(nextWord, (wordTransitions.get(nextWord) || 0) + 1);
+                }
+
+                const lastWord = words[words.length - 1];
+                this.wordFrequencies.set(lastWord, (this.wordFrequencies.get(lastWord) || 0) + 1);
+            }
+
+            getWordStatistics() {
+                const stats = [];
+                for (const [word, frequency] of this.wordFrequencies) {
+                    const nextWordsCount = this.transitions.has(word) ? this.transitions.get(word).size : 0;
+                    stats.push({ word, frequency, nextWordsCount });
+                }
+                return stats.sort((a, b) => b.frequency - a.frequency).slice(0, 20);
+            }
+
+            getTopTransitionsWithProbabilities(word, topCount = 20) {
+                const result = [];
+                if (this.transitions.has(word)) {
+                    const wordTransitions = this.transitions.get(word);
+                    const totalTransitions = Array.from(wordTransitions.values()).reduce((sum, count) => sum + count, 0);
+                    
+                    const topTransitions = Array.from(wordTransitions.entries())
+                        .sort(([,a], [,b]) => b - a)
+                        .slice(0, topCount);
+
+                    for (const [nextWord, count] of topTransitions) {
+                        const probability = (count / totalTransitions * 100).toFixed(2) + '%';
+                        result.push({ key: nextWord, value: count, probability });
+                    }
+                }
+                return result;
+            }
+
+            getTransitions(word) {
+                return this.transitions.has(word) ? this.transitions.get(word) : new Map();
+            }
+
+            wordExists(word) {
+                return this.wordFrequencies.has(word);
+            }
+
+            getAllWords() {
+                return Array.from(this.wordFrequencies.keys());
+            }
+
+            getAllWordsForGeneration() {
+                const stats = [];
+                for (const [word, frequency] of this.wordFrequencies) {
+                    const nextWordsCount = this.transitions.has(word) ? this.transitions.get(word).size : 0;
+                    stats.push({ word, frequency, nextWordsCount });
+                }
+                return stats.sort((a, b) => a.word.localeCompare(b.word));
+            }
+        }
+
+        //Класс автомата генерации текста 
+        class TextGenerationFSM {
+            constructor(analyzer) {
+                this.analyzer = analyzer;
+                this.random = Math.random;
+                this.currentState = GenerationState.Idle;
+                this.generatedWords = [];
+                this.startWord = '';
+                this.targetWordCount = 0;
+                this.result = '';
+                this.errorMessage = '';
+                this.currentSelection = {
+                    currentWord: '',
+                    selectedWord: '',
+                    probability: 0,
+                    availableTransitions: []
+                };
+                this.isAutoGeneration = false;
+                this.stateChangedCallbacks = [];
+                this.selectionInfoChangedCallbacks = [];
+            }
+
+            onStateChanged(callback) {
+                this.stateChangedCallbacks.push(callback);
+            }
+
+            onSelectionInfoChanged(callback) {
+                this.selectionInfoChangedCallbacks.push(callback);
+            }
+
+            notifyStateChanged() {
+                this.stateChangedCallbacks.forEach(callback => callback(this.currentState));
+            }
+
+            notifySelectionInfoChanged() {
+                this.selectionInfoChangedCallbacks.forEach(callback => callback(this.currentSelection));
+            }
+
+            startGeneration(startWord, wordCount, autoGeneration = false) {
+                if (this.currentState !== GenerationState.Idle && 
+                    this.currentState !== GenerationState.Completed && 
+                    this.currentState !== GenerationState.Error) {
+                    throw new Error(`Невозможно начать генерацию из состояния ${this.currentState}`);
+                }
+
+                this.reset();
+                this.startWord = startWord;
+                this.targetWordCount = wordCount;
+                this.isAutoGeneration = autoGeneration;
+                this.transitionToState(GenerationState.SelectingWord);
+            }
+
+            processNextStep() {
+                switch (this.currentState) {
+                    case GenerationState.SelectingWord:
+                        this.processSelectingWord();
+                        break;
+                    case GenerationState.WordSelected:
+                        this.processWordSelected();
+                        break;
+                    case GenerationState.SelectingNextWord:
+                        this.processSelectingNextWord();
+                        break;
+                    case GenerationState.NextWordSelected:
+                        this.processNextWordSelected();
+                        break;
+                }
+            }
+
+            processSelectingWord() {
+                try {
+                    if (!this.analyzer.wordExists(this.startWord)) {
+                        this.errorMessage = `Слово '${this.startWord}' не найдено в проанализированном тексте`;
+                        this.transitionToState(GenerationState.Error);
+                        return;
+                    }
+
+                    this.currentSelection = {
+                        currentWord: '[Начало]',
+                        selectedWord: this.startWord,
+                        probability: 1.0,
+                        availableTransitions: []
+                    };
+                    this.notifySelectionInfoChanged();
+
+                    this.transitionToState(GenerationState.WordSelected);
+                } catch (ex) {
+                    this.errorMessage = `Ошибка при выборе начального слова: ${ex.message}`;
+                    this.transitionToState(GenerationState.Error);
+                }
+            }
+
+            processWordSelected() {
+                try {
+                    this.generatedWords.push(this.startWord);
+
+                    if (this.generatedWords.length >= this.targetWordCount) {
+                        this.completeGeneration();
+                    } else {
+                        this.transitionToState(GenerationState.SelectingNextWord);
+                        if (this.isAutoGeneration) {
+                            setTimeout(() => this.processNextStep(), 100);
+                        }
+                    }
+                } catch (ex) {
+                    this.errorMessage = `Ошибка при добавлении начального слова: ${ex.message}`;
+                    this.transitionToState(GenerationState.Error);
+                }
+            }
+
+            processSelectingNextWord() {
+                try {
+                    const currentWord = this.generatedWords[this.generatedWords.length - 1];
+                    const transitions = this.analyzer.getTransitions(currentWord);
+                    const transitionsWithProb = this.analyzer.getTopTransitionsWithProbabilities(currentWord, 20);
+
+                    if (transitions.size === 0) {
+                        const allWords = this.analyzer.getAllWords();
+                        const randomWord = allWords[Math.floor(this.random() * allWords.length)];
+
+                        this.currentSelection = {
+                            currentWord,
+                            selectedWord: randomWord,
+                            probability: 1.0 / allWords.length,
+                            availableTransitions: transitionsWithProb
+                        };
+                        this.notifySelectionInfoChanged();
+                        this.transitionToState(GenerationState.NextWordSelected);
+                        return;
+                    }
+
+                    const total = Array.from(transitions.values()).reduce((sum, count) => sum + count, 0);
+                    let randomValue = Math.floor(this.random() * total);
+                    let cumulative = 0;
+
+                    for (const [nextWord, count] of transitions) {
+                        cumulative += count;
+                        if (randomValue < cumulative) {
+                            const probability = count / total;
+                            this.currentSelection = {
+                                currentWord,
+                                selectedWord: nextWord,
+                                probability,
+                                availableTransitions: transitionsWithProb
+                            };
+                            this.notifySelectionInfoChanged();
+                            this.transitionToState(GenerationState.NextWordSelected);
+                            return;
+                        }
+                    }
+
+                    const firstTransition = Array.from(transitions.entries())[0];
+                    const firstProbability = firstTransition[1] / total;
+                    this.currentSelection = {
+                        currentWord,
+                        selectedWord: firstTransition[0],
+                        probability: firstProbability,
+                        availableTransitions: transitionsWithProb
+                    };
+                    this.notifySelectionInfoChanged();
+                    this.transitionToState(GenerationState.NextWordSelected);
+                } catch (ex) {
+                    this.errorMessage = `Ошибка при выборе следующего слова: ${ex.message}`;
+                    this.transitionToState(GenerationState.Error);
+                }
+            }
+
+            processNextWordSelected() {
+                try {
+                    this.generatedWords.push(this.currentSelection.selectedWord);
+
+                    if (this.generatedWords.length >= this.targetWordCount) {
+                        this.completeGeneration();
+                    } else {
+                        this.transitionToState(GenerationState.SelectingNextWord);
+                        if (this.isAutoGeneration) {
+                            setTimeout(() => this.processNextStep(), 100);
+                        }
+                    }
+                } catch (ex) {
+                    this.errorMessage = `Ошибка при добавлении слова: ${ex.message}`;
+                    this.transitionToState(GenerationState.Error);
+                }
+            }
+
+            setAutoGeneration(autoGeneration) {
+                this.isAutoGeneration = autoGeneration;
+                if (this.isAutoGeneration && 
+                    (this.currentState === GenerationState.SelectingNextWord || 
+                     this.currentState === GenerationState.NextWordSelected)) {
+                    setTimeout(() => this.processNextStep(), 100);
+                }
+            }
+
+            completeGeneration() {
+                this.result = this.generatedWords.join(' ');
+                this.transitionToState(GenerationState.Completed);
+            }
+
+            reset() {
+                this.generatedWords = [];
+                this.startWord = '';
+                this.targetWordCount = 0;
+                this.result = '';
+                this.errorMessage = '';
+                this.currentSelection = {
+                    currentWord: '',
+                    selectedWord: '',
+                    probability: 0,
+                    availableTransitions: []
+                };
+                this.isAutoGeneration = false;
+                this.transitionToState(GenerationState.Idle);
+            }
+
+            transitionToState(newState) {
+                this.currentState = newState;
+                this.notifyStateChanged();
+            }
+
+            getStatusMessage() {
+                const mode = this.isAutoGeneration ? ' [АВТО]' : ' [РУЧНОЙ]';
+                switch (this.currentState) {
+                    case GenerationState.Idle:
+                        return 'Ожидание начала генерации' + mode;
+                    case GenerationState.SelectingWord:
+                        return 'Выбор начального слова...' + mode;
+                    case GenerationState.WordSelected:
+                        return `Начальное слово '${this.startWord}' выбрано` + mode;
+                    case GenerationState.SelectingNextWord:
+                        return `Выбор следующего слова для '${this.generatedWords[this.generatedWords.length - 1]}'...` + mode;
+                    case GenerationState.NextWordSelected:
+                        return `Слово '${this.currentSelection.selectedWord}' выбрано (вероятность: ${(this.currentSelection.probability * 100).toFixed(2)}%)` + mode;
+                    case GenerationState.Completed:
+                        return `Генерация завершена! Сгенерировано ${this.generatedWords.length} слов`;
+                    case GenerationState.Error:
+                        return `Ошибка: ${this.errorMessage}`;
+                    default:
+                        return 'Неизвестное состояние';
+                }
+            }
+
+            getCurrentGeneratedText() {
+                return this.generatedWords.join(' ');
+            }
+        }
+
+        //Основной класс цепи маркова
+        class MarkovChainApp {
+            constructor() {
+                this.analyzer = new MarkovChainAnalyzer();
+                this.generationFSM = new TextGenerationFSM(this.analyzer);
+                this.kmpSearchFSM = new KMPSearchFSM();
+                this.allWordStats = [];
+                this.allWordsForGeneration = [];
+                this.autoGenerationInterval = null;
+                this.kmpSearchInterval = null;
+
+                this.initializeElements();
+                this.bindEvents();
+                this.subscribeToFSMEvents();
+            }
+
+            initializeElements() {
+                //Получаем ссылки на DOM элементы
+                this.elements = {
+                    inputText: document.getElementById('inputText'),
+                    analyzeBtn: document.getElementById('analyzeBtn'),
+                    loadFileBtn: document.getElementById('loadFileBtn'),
+                    currentState: document.getElementById('currentState'),
+                    selectionInfo: document.getElementById('selectionInfo'),
+                    generationSearch: document.getElementById('generationSearch'),
+                    clearGenerationSearch: document.getElementById('clearGenerationSearch'),
+                    startWord: document.getElementById('startWord'),
+                    wordCount: document.getElementById('wordCount'),
+                    generateStepBtn: document.getElementById('generateStepBtn'),
+                    startAutoBtn: document.getElementById('startAutoBtn'),
+                    stopAutoBtn: document.getElementById('stopAutoBtn'),
+                    resetBtn: document.getElementById('resetBtn'),
+                    generatedText: document.getElementById('generatedText'),
+                    availableTransitions: document.getElementById('availableTransitions').querySelector('tbody'),
+                    wordSearch: document.getElementById('wordSearch'),
+                    clearSearch: document.getElementById('clearSearch'),
+                    wordStats: document.getElementById('wordStats').querySelector('tbody'),
+                    transitionsTable: document.getElementById('transitionsTable').querySelector('tbody'),
+                    generationProgress: document.getElementById('generationProgress'),
+                    progressText: document.getElementById('progressText'),
+                    searchPattern: document.getElementById('searchPattern'),
+                    startSearchBtn: document.getElementById('startSearchBtn'),
+                    resetSearchBtn: document.getElementById('resetSearchBtn'),
+                    searchState: document.getElementById('searchState'),
+                    searchResult: document.getElementById('searchResult'),
+                    searchProgress: document.getElementById('searchProgress'),
+                    searchProgressText: document.getElementById('searchProgressText'),
+                    searchDetails: document.getElementById('searchDetails'),
+                    currentTextIndex: document.getElementById('currentTextIndex'),
+                    currentPatternIndex: document.getElementById('currentPatternIndex'),
+                    comparisonsCount: document.getElementById('comparisonsCount'),
+                    prefixFunction: document.getElementById('prefixFunction'),
+                    stepDetails: document.getElementById('stepDetails'),
+                    occurrencesContainer: document.getElementById('occurrencesContainer'),
+                    occurrencesList: document.getElementById('occurrencesList')
+                };
+            }
+
+            bindEvents() {
+                this.elements.analyzeBtn.addEventListener('click', () => this.analyzeText());
+                this.elements.loadFileBtn.addEventListener('click', () => this.loadFile());
+                this.elements.generateStepBtn.addEventListener('click', () => this.generateStep());
+                this.elements.startAutoBtn.addEventListener('click', () => this.startAutoGeneration());
+                this.elements.stopAutoBtn.addEventListener('click', () => this.stopAutoGeneration());
+                this.elements.resetBtn.addEventListener('click', () => this.resetGeneration());
+                this.elements.clearSearch.addEventListener('click', () => {
+                    this.elements.wordSearch.value = '';
+                    this.applyWordStatsFilter();
+                });
+                this.elements.clearGenerationSearch.addEventListener('click', () => {
+                    this.elements.generationSearch.value = '';
+                    this.applyGenerationWordsFilter();
+                });
+                this.elements.startSearchBtn.addEventListener('click', () => this.startKMPSearch());
+                this.elements.resetSearchBtn.addEventListener('click', () => this.resetKMPSearch());
+                this.elements.wordSearch.addEventListener('input', () => this.applyWordStatsFilter());
+                this.elements.generationSearch.addEventListener('input', () => this.applyGenerationWordsFilter());
+                this.elements.wordStats.addEventListener('click', (e) => {
+                    const row = e.target.closest('tr');
+                    if (row) {
+                        const word = row.cells[1].textContent;
+                        this.displayWordTransitions(word);
+                    }
+                });
+            }
+            
+            
+            subscribeToFSMEvents() {
+                this.generationFSM.onStateChanged((state) => this.onGenerationStateChanged(state));
+                this.generationFSM.onSelectionInfoChanged((info) => this.onSelectionInfoChanged(info));
+                this.kmpSearchFSM.onStateChanged((state) => this.onKMPSearchStateChanged(state));
+                this.kmpSearchFSM.onSearchProgressChanged((result) => this.onKMPSearchProgressChanged(result));
+            }
+
+            analyzeText() {
+                try {
+                    const text = this.elements.inputText.value;
+                    if (!text.trim()) {
+                        alert('Пожалуйста, введите текст для анализа.');
+                        return;
+                    }
+
+                    this.analyzer.analyzeText(text);
+                    this.updateResults();
+                } catch (ex) {
+                    alert(`Ошибка при анализе текста: ${ex.message}`);
+                }
+            }
+
+            loadFile() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.txt,.text,text/plain';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            this.elements.inputText.value = event.target.result;
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            }
+
+            updateResults() {
+                this.displayWordStatistics();
+                this.populateStartWordComboBox();
+                this.clearTable(this.elements.transitionsTable);
+
+                this.generationFSM.reset();
+                this.updateCurrentState(this.generationFSM.currentState);
+                this.updateGenerationStatus();
+            }
+
+            displayWordStatistics() {
+                this.allWordStats = this.analyzer.getWordStatistics();
+                this.renderTableWithNumbers(this.elements.wordStats, this.allWordStats, ['word', 'frequency', 'nextWordsCount']);
+            }
+
+            populateStartWordComboBox() {
+                this.allWordsForGeneration = this.analyzer.getAllWordsForGeneration();
+                
+                this.elements.startWord.innerHTML = '';
+                this.allWordsForGeneration.forEach(stat => {
+                    const option = document.createElement('option');
+                    option.value = stat.word;
+                    option.textContent = stat.word;
+                    this.elements.startWord.appendChild(option);
+                });
+
+                if (this.allWordsForGeneration.length > 0) {
+                    this.elements.startWord.selectedIndex = 0;
+                }
+            }
+
+            displayWordTransitions(word) {
+                const transitions = this.analyzer.getTopTransitionsWithProbabilities(word, 20);
+                this.renderTableWithNumbers(this.elements.transitionsTable, transitions, ['key', 'value', 'probability']);
+            }
+
+            applyWordStatsFilter() {
+                const searchText = this.elements.wordSearch.value.toLowerCase();
+                let filteredStats = this.allWordStats;
+                
+                if (searchText) {
+                    filteredStats = this.allWordStats.filter(stat => 
+                        stat.word.toLowerCase().includes(searchText)
+                    );
+                }
+                
+                filteredStats = filteredStats.slice(0, 20);
+                this.renderTableWithNumbers(this.elements.wordStats, filteredStats, ['word', 'frequency', 'nextWordsCount']);
+            }
+
+            applyGenerationWordsFilter() {
+                const searchText = this.elements.generationSearch.value.toLowerCase();
+                let filteredWords = this.allWordsForGeneration;
+                
+                if (searchText) {
+                    filteredWords = this.allWordsForGeneration.filter(stat => 
+                        stat.word.toLowerCase().includes(searchText)
+                    );
+                }
+                
+                this.elements.startWord.innerHTML = '';
+                filteredWords.forEach(stat => {
+                    const option = document.createElement('option');
+                    option.value = stat.word;
+                    option.textContent = stat.word;
+                    this.elements.startWord.appendChild(option);
+                });
+
+                if (filteredWords.length > 0) {
+                    this.elements.startWord.selectedIndex = 0;
+                }
+            }
+
+            generateStep() {
+                try {
+                    if (this.generationFSM.currentState === GenerationState.Idle ||
+                        this.generationFSM.currentState === GenerationState.Completed ||
+                        this.generationFSM.currentState === GenerationState.Error) {
+                        
+                        const selectedWord = this.elements.startWord.value;
+                        const wordCount = parseInt(this.elements.wordCount.value);
+
+                        if (!selectedWord) {
+                            alert('Пожалуйста, выберите начальное слово.');
+                            return;
+                        }
+
+                        if (isNaN(wordCount) || wordCount <= 0) {
+                            alert('Пожалуйста, введите корректное количество слов.');
+                            return;
+                        }
+
+                        this.generationFSM.startGeneration(selectedWord, wordCount, false);
+                    }
+
+                    this.generationFSM.processNextStep();
+                } catch (ex) {
+                    alert(`Ошибка при выполнении шага генерации: ${ex.message}`);
+                }
+            }
+
+            startAutoGeneration() {
+                try {
+                    if (this.generationFSM.currentState === GenerationState.Idle ||
+                        this.generationFSM.currentState === GenerationState.Completed ||
+                        this.generationFSM.currentState === GenerationState.Error) {
+                        
+                        const selectedWord = this.elements.startWord.value;
+                        const wordCount = parseInt(this.elements.wordCount.value);
+
+                        if (!selectedWord) {
+                            alert('Пожалуйста, выберите начальное слово.');
+                            return;
+                        }
+
+                        if (isNaN(wordCount) || wordCount <= 0) {
+                            alert('Пожалуйста, введите корректное количество слов.');
+                            return;
+                        }
+
+                        this.generationFSM.startGeneration(selectedWord, wordCount, true);
+                    } else {
+                        this.generationFSM.setAutoGeneration(true);
+                    }
+
+                    this.startAutoGenerationTimer();
+                } catch (ex) {
+                    alert(`Ошибка при запуске автоматической генерации: ${ex.message}`);
+                }
+            }
+
+            stopAutoGeneration() {
+                this.generationFSM.setAutoGeneration(false);
+                this.stopAutoGenerationTimer();
+                this.updateControlStates();
+            }
+
+            resetGeneration() {
+                this.generationFSM.reset();
+                this.stopAutoGenerationTimer();
+                this.updateCurrentState(this.generationFSM.currentState);
+                this.updateGenerationStatus();
+                this.updateControlStates();
+            }
+
+            startAutoGenerationTimer() {
+                this.stopAutoGenerationTimer();
+                this.autoGenerationInterval = setInterval(() => {
+                    if (this.generationFSM.isAutoGeneration &&
+                        this.generationFSM.currentState !== GenerationState.Completed &&
+                        this.generationFSM.currentState !== GenerationState.Error) {
+                        this.generationFSM.processNextStep();
+                    } else {
+                        this.stopAutoGenerationTimer();
+                    }
+                }, 500);
+            }
+
+            stopAutoGenerationTimer() {
+                if (this.autoGenerationInterval) {
+                    clearInterval(this.autoGenerationInterval);
+                    this.autoGenerationInterval = null;
+                }
+            }
+
+            startKMPSearch() {
+                try {
+                    const pattern = this.elements.searchPattern.value;
+                    const text = this.elements.generatedText.value;
+
+                    if (!pattern) {
+                        alert('Пожалуйста, введите подстроку для поиска.');
+                        return;
+                    }
+
+                    if (!text) {
+                        alert('Сгенерированный текст пуст. Сначала сгенерируйте текст.');
+                        return;
+                    }
+
+                    this.kmpSearchFSM.startSearch(pattern, text);
+                    this.startKMPSearchTimer();
+                } catch (ex) {
+                    alert(`Ошибка при запуске поиска: ${ex.message}`);
+                }
+            }
+
+            resetKMPSearch() {
+                this.kmpSearchFSM.reset();
+                this.stopKMPSearchTimer();
+                this.updateKMPSearchState(this.kmpSearchFSM.currentState);
+                this.updateKMPSearchControls();
+                this.hideSearchDetails();
+                this.hideOccurrences();
+            }
+
+            startKMPSearchTimer() {
+                this.stopKMPSearchTimer();
+                this.kmpSearchInterval = setInterval(() => {
+                    if (this.kmpSearchFSM.currentState === KMPSearchState.ComputingPrefix ||
+                        this.kmpSearchFSM.currentState === KMPSearchState.Searching) {
+                        this.kmpSearchFSM.computeNextStep();
+                    } else {
+                        this.stopKMPSearchTimer();
+                    }
+                }, 100);
+            }
+
+            stopKMPSearchTimer() {
+                if (this.kmpSearchInterval) {
+                    clearInterval(this.kmpSearchInterval);
+                    this.kmpSearchInterval = null;
+                }
+            }
+
+            //Обработчики событий автоматов
+            onGenerationStateChanged(state) {
+                this.updateCurrentState(state);
+                this.updateGenerationStatus();
+                this.updateProgress();
+                this.updateControlStates();
+
+                if (state === GenerationState.Completed || state === GenerationState.Error) {
+                    this.stopAutoGenerationTimer();
+                }
+            }
+
+            onSelectionInfoChanged(selectionInfo) {
+                this.updateSelectionInfo(selectionInfo);
+                this.updateAvailableTransitions(selectionInfo);
+            }
+
+            onKMPSearchStateChanged(state) {
+                this.updateKMPSearchState(state);
+                this.updateKMPSearchControls();
+                
+                if (state === KMPSearchState.ComputingPrefix || state === KMPSearchState.Searching) {
+                    this.showSearchDetails();
+                } else {
+                    this.hideSearchDetails();
+                }
+                
+                if (state === KMPSearchState.Completed) {
+                    this.showOccurrences();
+                } else {
+                    this.hideOccurrences();
+                }
+            }
+
+            onKMPSearchProgressChanged(detailedState) {
+                this.updateKMPSearchProgress(detailedState);
+                this.updateSearchDetails(detailedState);
+            }
+
+            //Методы обновления UI
+            updateCurrentState(state) {
+                const stateText = this.getStateDisplayName(state);
+                const modeText = this.generationFSM.isAutoGeneration ? ' [АВТО]' : ' [РУЧНОЙ]';
+                this.elements.currentState.textContent = stateText + modeText;
+            }
+
+            getStateDisplayName(state) {
+                const names = {
+                    [GenerationState.Idle]: 'Idle - Ожидание',
+                    [GenerationState.SelectingWord]: 'SelectingWord - Выбор начального слова',
+                    [GenerationState.WordSelected]: 'WordSelected - Начальное слово выбрано',
+                    [GenerationState.SelectingNextWord]: 'SelectingNextWord - Выбор следующего слова',
+                    [GenerationState.NextWordSelected]: 'NextWordSelected - Следующее слово выбрано',
+                    [GenerationState.Completed]: 'Completed - Завершено',
+                    [GenerationState.Error]: 'Error - Ошибка'
+                };
+                return names[state] || 'Unknown - Неизвестно';
+            }
+
+            updateGenerationStatus() {
+                this.elements.generatedText.value = this.generationFSM.getCurrentGeneratedText();
+            }
+
+            updateSelectionInfo(selectionInfo) {
+                if (selectionInfo && selectionInfo.selectedWord) {
+                    const info = `Текущее слово: ${selectionInfo.currentWord}\n` +
+                                `Выбранное слово: ${selectionInfo.selectedWord}\n` +
+                                `Вероятность выбора: ${(selectionInfo.probability * 100).toFixed(2)}%`;
+                    this.elements.selectionInfo.textContent = info;
+                } else {
+                    this.elements.selectionInfo.textContent = 'Нет данных';
+                }
+            }
+
+            updateAvailableTransitions(selectionInfo) {
+                if (selectionInfo && selectionInfo.availableTransitions) {
+                    this.renderTableWithNumbers(this.elements.availableTransitions, selectionInfo.availableTransitions, ['key', 'value', 'probability']);
+                } else {
+                    this.clearTable(this.elements.availableTransitions);
+                }
+            }
+
+            updateProgress() {
+                const currentCount = this.generationFSM.generatedWords.length;
+                const targetCount = this.generationFSM.targetWordCount;
+
+                if (targetCount > 0) {
+                    const progress = (currentCount / targetCount) * 100;
+                    this.elements.generationProgress.style.width = `${progress}%`;
+                    this.elements.progressText.textContent = `${currentCount}/${targetCount}`;
+                } else {
+                    this.elements.generationProgress.style.width = '0%';
+                    this.elements.progressText.textContent = '0/0';
+                }
+            }
+
+            updateControlStates() {
+                const state = this.generationFSM.currentState;
+                const isAuto = this.generationFSM.isAutoGeneration;
+
+                this.elements.generateStepBtn.disabled = isAuto || state === GenerationState.Completed || state === GenerationState.Error;
+                this.elements.startAutoBtn.disabled = isAuto || state === GenerationState.Completed || state === GenerationState.Error;
+                this.elements.stopAutoBtn.disabled = !isAuto || state === GenerationState.Completed || state === GenerationState.Error;
+                this.elements.resetBtn.disabled = state === GenerationState.Idle;
+
+                const enableControls = !isAuto && (state === GenerationState.Idle || state === GenerationState.Completed || state === GenerationState.Error);
+                this.elements.startWord.disabled = !enableControls;
+                this.elements.wordCount.disabled = !enableControls;
+                this.elements.generationSearch.disabled = !enableControls;
+                this.elements.clearGenerationSearch.disabled = !enableControls;
+            }
+
+            updateKMPSearchState(state) {
+                this.elements.searchState.innerHTML = this.kmpSearchFSM.getStatusMessage();
+            }
+
+            updateKMPSearchProgress(detailedState) {
+                this.elements.searchProgress.style.width = `${this.kmpSearchFSM.getProgress()}%`;
+                this.elements.searchProgressText.textContent = this.kmpSearchFSM.getProgressText();
+
+                if (this.kmpSearchFSM.currentState === KMPSearchState.Completed) {
+                    this.elements.searchResult.textContent = `Найдено ${detailedState.occurrences.length} вхождений (сравнений: ${detailedState.comparisons})`;
+                    this.elements.searchResult.className = 'found';
+                } else if (this.kmpSearchFSM.currentState === KMPSearchState.NotFound) {
+                    this.elements.searchResult.textContent = `Вхождения не найдены (сравнений: ${detailedState.comparisons})`;
+                    this.elements.searchResult.className = 'not-found';
+                } else if (this.kmpSearchFSM.currentState === KMPSearchState.Error) {
+                    this.elements.searchResult.textContent = `Ошибка: ${this.kmpSearchFSM.result.currentState}`;
+                    this.elements.searchResult.className = 'not-found';
+                } else {
+                    this.elements.searchResult.textContent = 'Выполняется поиск...';
+                    this.elements.searchResult.className = 'searching';
+                }
+            }
+
+            updateSearchDetails(detailedState) {
+                this.elements.currentTextIndex.textContent = detailedState.textIndex;
+                this.elements.currentPatternIndex.textContent = detailedState.patternIndex;
+                this.elements.comparisonsCount.textContent = detailedState.comparisons;
+                this.elements.prefixFunction.textContent = JSON.stringify(detailedState.prefixFunction);
+                this.elements.stepDetails.textContent = detailedState.stepDetails;
+            }
+
+            updateKMPSearchControls() {
+                const isSearching = this.kmpSearchFSM.currentState === KMPSearchState.ComputingPrefix || 
+                                  this.kmpSearchFSM.currentState === KMPSearchState.Searching;
+
+                this.elements.startSearchBtn.disabled = isSearching;
+                this.elements.resetSearchBtn.disabled = this.kmpSearchFSM.currentState === KMPSearchState.Idle;
+                this.elements.searchPattern.disabled = isSearching;
+            }
+
+            showSearchDetails() {
+                this.elements.searchDetails.style.display = 'block';
+            }
+
+            hideSearchDetails() {
+                this.elements.searchDetails.style.display = 'none';
+            }
+
+            showOccurrences() {
+                const occurrences = this.kmpSearchFSM.occurrences;
+                if (occurrences.length > 0) {
+                    this.elements.occurrencesList.innerHTML = '';
+                    occurrences.forEach((pos, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'occurrence-item';
+                        div.textContent = `${index + 1}. Позиция: ${pos}`;
+                        this.elements.occurrencesList.appendChild(div);
+                    });
+                    this.elements.occurrencesContainer.style.display = 'block';
+                }
+            }
+
+            hideOccurrences() {
+                this.elements.occurrencesContainer.style.display = 'none';
+            }
+
+            //Вспомогательные методы
+            renderTableWithNumbers(tbody, data, fields) {
+                this.clearTable(tbody);
+                data.forEach((item, index) => {
+                    const row = tbody.insertRow();
+                    const numberCell = row.insertCell();
+                    numberCell.textContent = index + 1;
+                    
+                    fields.forEach(field => {
+                        const cell = row.insertCell();
+                        cell.textContent = item[field];
+                    });
+                });
+            }
+
+            clearTable(tbody) {
+                tbody.innerHTML = '';
+            }
+        }
+
+        //Инициализация приложения при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new MarkovChainApp();
+            
+
+        });
+    </script>
+</body>
+</html>

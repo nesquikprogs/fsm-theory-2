@@ -1,0 +1,44 @@
+﻿<Window x:Class="LightBulbAutomaton.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Лампочка" Height="400" Width="500"
+        WindowStartupLocation="CenterScreen">
+    <Grid Background="AliceBlue">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="1" Background="White" Margin="20" 
+                CornerRadius="10" BorderBrush="#ccc" BorderThickness="1">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Ellipse x:Name="LightBulb" Width="120" Height="120"
+                        Stroke="Gray" StrokeThickness="2"
+                        Fill="LightGray" Margin="0,0,0,20"/>
+
+                <TextBlock x:Name="StatusText" Text="Состояние: Выключена" 
+                          FontSize="16" HorizontalAlignment="Center" 
+                          FontWeight="SemiBold"/>
+
+                <TextBlock x:Name="TimerText" Text="Таймер: 0 сек" 
+                          FontSize="14" HorizontalAlignment="Center" 
+                          Margin="0,10,0,0" Foreground="Black"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" 
+                   HorizontalAlignment="Center" Margin="10">
+            <Button x:Name="ToggleButton" Content="Переключить" 
+                   Width="120" Height="35" Margin="5" FontSize="14"
+                   Click="ToggleButton_Click" Background="White" 
+                   Foreground="Black"/>
+
+            <Button x:Name="ReplaceButton" Content="Заменить лампочку" 
+                   Width="120" Height="35" Margin="5" FontSize="14"
+                   Click="ReplaceButton_Click" Background="White" 
+                   Foreground="Black" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</Window>

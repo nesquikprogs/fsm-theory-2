@@ -1,0 +1,863 @@
+<head>
+<style>
+/* ===== ОБЩИЙ ФОН ===== */
+body{
+  margin:0;
+  padding:20px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: radial-gradient(circle at top, #1e293b, #12b9d7);
+  color:#e5e7eb;
+}
+
+/* ===== ПАНЕЛЬ УПРАВЛЕНИЯ ===== */
+.controls{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin-bottom:14px;
+  flex-wrap:wrap;
+  padding:14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius:14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+
+label{font-size:13px; opacity:0.9}
+
+/* ===== КНОПКИ ===== */
+button{
+  padding:8px 16px;
+  border:none;
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
+  background: linear-gradient(135deg,#38bdf8,#2563eb);
+  color:white;
+  box-shadow:0 6px 14px rgba(0,0,0,0.25);
+  transition: all 0.2s ease;
+}
+
+
+
+button:disabled{
+  opacity:0.5;
+  background:#475569;
+  cursor:not-allowed;
+}
+
+/* ===== ПОЛЗУНКИ ===== */
+input[type=range]{
+  accent-color: #38bdf8;
+}
+
+/* ===== КАРТОЧКИ МАШИН ===== */
+#machines{
+  display:flex;
+  gap:14px;
+  margin:14px 0;
+  flex-wrap:wrap;
+}
+
+.machine{
+  padding:14px;
+  border-radius:18px;
+  width:260px;
+  background:
+    linear-gradient(135deg, rgba(224, 222, 222, 0.12), rgba(219, 208, 208, 0.02));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+  border:1px solid rgba(255,255,255,0.12);
+  transition: all 0.25s ease;
+}
+
+
+
+.machine > div:first-child{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:6px;
+  color:#7dd3fc;
+}
+
+/* ===== СЕРВЕРНЫЕ СТРОКИ ===== */
+.cash{
+  display:flex;
+  justify-content:space-between;
+  padding:6px 0;
+  border-bottom:1px dashed rgba(255,255,255,0.15);
+}
+
+.state{font-weight:700}
+
+/* ===== ТЕКСТ МЕЛКИЙ ===== */
+.small{
+  font-size:12px;
+  color:#cbd5f5;
+  margin:3px 0;
+}
+
+/* ===== CANVAS ===== */
+canvas{
+  margin-top:12px;
+  padding:18px;
+  background:
+    linear-gradient(180deg,#ffffff,#e5e7eb);
+  border-radius:16px;
+  border:none;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.4);
+}
+
+/* ===== СЕТЬ ПЕТРИ ===== */
+#pnCanvas{
+  padding:22px;
+  width:100%;
+  height:220px;
+  max-width:950px;
+  display:block;
+  background:
+    linear-gradient(180deg,#f8fafc,#e2e8f0);
+  border-radius:18px;
+  box-shadow: 0 12px 38px rgba(0,0,0,0.45);
+}
+
+/* ===== МАРКИРОВКА ===== */
+#marking{
+  background: rgba(0,0,0,0.4);
+  padding:10px 14px;
+  border-radius:12px;
+  margin-top:10px;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+}
+
+/* ===== ТАБЛИЦА МАТРИЦ ===== */
+#matrixContainer{
+  margin-top:14px;
+  padding:14px;
+  border-radius:16px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.35);
+}
+
+#matrixTable{
+  width:100%;
+  border-collapse:collapse;
+  font-family:monospace;
+  font-size:13px;
+  color:#e5e7eb;
+}
+
+#matrixTable td, #matrixTable th{
+  border:1px solid rgba(255,255,255,0.25);
+  padding:6px 8px;
+  text-align:center;
+}
+
+#matrixTable th{
+  background: rgba(56,189,248,0.25);
+  color:#e0f2fe;
+}
+
+/* ===== АКТИВНЫЕ ЯЧЕЙКИ ===== */
+.activeCell{
+  background: linear-gradient(135deg,#22c55e,#16a34a);
+  color:white;
+  font-weight:700;
+}
+</style>
+
+</head>
+<body>
+
+<div class="controls">
+  <button id="startBtn">Start</button>
+  <button id="stopBtn" disabled>Stop</button>
+  <button id="resetBtn">Reset</button>
+
+  <label>Скорость: <span id="speedVal">1x</span>
+    <input id="speed" type="range" min="0.1" max="5" step="0.1" value="1" />
+  </label>
+
+  <label>Интенсивность (заявок / сек): <span id="rateVal">0.8</span>
+    <input id="rate" type="range" min="0.1" max="5" step="0.1" value="0.8" />
+  </label>
+
+  <label>Время обслуживания (среднее): <span id="srvVal">4.0s</span>
+    <input id="servMean" type="range" min="0.5" max="10" step="0.1" value="4" />
+  </label>
+</div>
+
+<div id="machines">
+  <div class="machine">
+    <div style="font-weight:700">FIFO</div>
+    <div class="small">Очередь: <span id="qFifo">0</span></div>
+    <div id="serversFifo"></div>
+  </div>
+
+  <div class="machine">
+    <div style="font-weight:700">LIFO</div>
+    <div class="small">Очередь: <span id="qLifo">0</span></div>
+    <div id="serversLifo"></div>
+  </div>
+
+  
+
+  <div class="machine">
+    <div style="font-weight:700">Статистика</div>
+    <div class="small">Всего пришло: <span id="arrived">0</span></div>
+    <div class="small">Обслужено FIFO: <span id="doneFifo">0</span></div>
+    <div class="small">Обслужено LIFO: <span id="doneLifo">0</span></div>
+    <div class="small" style="margin-top:6px"></div>
+    <div class="small">Отброшено: <span id="dropped">0</span></div>
+    <div class="small">Если касса свободна — заявка идёт прямо в сервис. Если все заняты — заявка сохраняется в очереди.</div>
+  </div>
+</div>
+
+<canvas id="chart" height="160"></canvas>
+<canvas id="pnCanvas"></canvas>
+<div id="marking" class="small" style="margin-top:8px;font-family:monospace"></div>
+<div id="matrixContainer" style="margin-top:10px">
+  <table id="matrixTable" border="1" cellspacing="0" cellpadding="4" style="font-family:monospace; font-size:13px; border-collapse:collapse"></table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(() => {
+
+  
+
+  // параметры
+  const N_SERVERS = 5;
+  const QUEUE_LIMIT = 10;
+  const tickMs = 200;
+
+  // UI
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const speedEl = document.getElementById('speed');
+  const speedVal = document.getElementById('speedVal');
+  const rateEl = document.getElementById('rate');
+  const rateVal = document.getElementById('rateVal');
+  const servMeanEl = document.getElementById('servMean');
+  const srvVal = document.getElementById('srvVal');
+
+  const qFifo = document.getElementById('qFifo');
+  const qLifo = document.getElementById('qLifo');
+  const serversFifo = document.getElementById('serversFifo');
+  const serversLifo = document.getElementById('serversLifo');
+  const arrivedEl = document.getElementById('arrived');
+  const doneFifoEl = document.getElementById('doneFifo');
+  const doneLifoEl = document.getElementById('doneLifo');
+
+  const pnCanvas = document.getElementById('pnCanvas');
+  const pnCtx = pnCanvas.getContext('2d');
+
+  speedEl.oninput = ()=> speedVal.textContent = speedEl.value + 'x';
+  rateEl.oninput = ()=> rateVal.textContent = rateEl.value;
+  servMeanEl.oninput = ()=> srvVal.textContent = servMeanEl.value + 's';
+
+  function makeServersView(container) {
+    container.innerHTML = '';
+    for(let i=0;i<N_SERVERS;i++){
+      const div = document.createElement('div');
+      div.className='cash';
+      div.id = container.id + '-s' + i;
+      div.innerHTML = `<div>Касса ${i+1}</div><div class="state">ready</div>`;
+      container.appendChild(div);
+    }
+  }
+  makeServersView(serversFifo);
+  makeServersView(serversLifo);
+
+  class PetriNet {
+  constructor() {
+    this.places = {};   
+    this.placeList = ['fifo_q', 'lifo_q', 'fifo_idle', 'lifo_idle', 'fifo_inservice', 'lifo_inservice', 'done'];
+    this.transitions = ['T_fifo_start', 'T_fifo_finish', 'T_lifo_start', 'T_lifo_finish'];
+    this.inputMatrix = {};
+    this.outputMatrix = {};
+    this.inService = {};
+    this.arrived = 0;
+    this.doneFifo = 0;
+    this.doneLifo = 0;
+    this.nextId = 0;
+    this.dropped = 0;
+  }
+
+  addPlace(name, tokens=0){ this.places[name] = tokens; }
+
+  tokens(name){ return this.places[name] || 0; }
+
+  initMatrices() {
+    for (const p of this.placeList) {
+      this.inputMatrix[p] = {};
+      this.outputMatrix[p] = {};
+      for (const t of this.transitions) {
+        this.inputMatrix[p][t] = 0;
+        this.outputMatrix[p][t] = 0;
+      }
+    }
+
+    // определение матрицы переходов
+    this.inputMatrix['fifo_q']['T_fifo_start'] = 1;
+    this.inputMatrix['fifo_idle']['T_fifo_start'] = 1;
+    this.outputMatrix['fifo_inservice']['T_fifo_start'] = 1;
+
+    this.inputMatrix['fifo_inservice']['T_fifo_finish'] = 1;
+    this.outputMatrix['fifo_idle']['T_fifo_finish'] = 1;
+    this.outputMatrix['done']['T_fifo_finish'] = 1;
+
+    this.inputMatrix['lifo_q']['T_lifo_start'] = 1;
+    this.inputMatrix['lifo_idle']['T_lifo_start'] = 1;
+    this.outputMatrix['lifo_inservice']['T_lifo_start'] = 1;
+
+    this.inputMatrix['lifo_inservice']['T_lifo_finish'] = 1;
+    this.outputMatrix['lifo_idle']['T_lifo_finish'] = 1;
+    this.outputMatrix['done']['T_lifo_finish'] = 1;
+  }
+
+    inc(name, n = 1) {
+    if (!(name in this.places)) this.places[name] = 0;
+    this.places[name] += n;
+  }
+
+  dec(name, n = 1) {
+    if (!(name in this.places)) this.places[name] = 0;
+    this.places[name] = Math.max(0, this.places[name] - n);
+  }
+
+  isEnabled(transition) {
+    for (const p of this.placeList) {
+      if (this.tokens(p) < this.inputMatrix[p][transition]) return false;
+    }
+    return true;
+  }
+  
+  // переходы по матрице идентичности
+  fire(transition) {
+    if (!this.isEnabled(transition)) return false;
+    for (const p of this.placeList) {
+      this.places[p] = this.tokens(p)
+        - this.inputMatrix[p][transition]
+        + this.outputMatrix[p][transition];
+    }
+    return true;
+  }
+}
+
+  let net = null;
+  function buildNet() {
+  net = new PetriNet();
+  net.addPlace('fifo_q',0);
+  net.addPlace('lifo_q',0);
+  net.addPlace('fifo_idle',N_SERVERS);
+  net.addPlace('lifo_idle',N_SERVERS);
+  net.addPlace('fifo_inservice',0);
+  net.addPlace('lifo_inservice',0);
+  net.addPlace('done',0);
+  net.initMatrices();
+}
+
+
+
+  const transitionMatrix = {
+  fifo: [
+    { from: 'fifo_q', to: 'fifo_idle', label: 'take_request', color: '#4caf50' },
+    { from: 'fifo_idle', to: 'fifo_inservice', label: 'start_service', color: '#4caf50' },
+    { from: 'fifo_inservice', to: 'done', label: 'finish', color: '#4caf50' }
+  ],
+  lifo: [
+    { from: 'lifo_q', to: 'lifo_idle', label: 'take_request', color: '#2196f3' },
+    { from: 'lifo_idle', to: 'lifo_inservice', label: 'start_service', color: '#2196f3' },
+    { from: 'lifo_inservice', to: 'done', label: 'finish', color: '#2196f3' }
+  ]
+};
+
+
+
+  function rnd(){ return Math.random(); }
+  function expSample(mean){
+    return -Math.log(1 - rnd()) * mean;
+  }
+  function serviceTime(){
+    const mean = parseFloat(servMeanEl.value);
+    return Math.max(0.1, expSample(mean));
+  }
+
+  function scheduleNextArrival() {
+    const lambda = parseFloat(rateEl.value);
+    const inter = expSample(1/lambda);
+    net.nextArrivalTime = sim.time + inter;
+  }
+
+  // прибытие заявки
+  function fireArrival() {
+    net.arrived++;
+
+    const id = ++net.nextId;
+
+     if (net.tokens('fifo_q') < QUEUE_LIMIT) {
+    net.inc('fifo_q', 1);
+    fireTransition('fifo', 'fifo_q', 'fifo_idle');
+  }
+    if (net.tokens('lifo_q') < QUEUE_LIMIT) {
+    net.inc('lifo_q', 1);
+    fireTransition('lifo', 'lifo_q', 'lifo_idle');
+  }
+    fireTransition('fifo', 'fifo_q', 'fifo_idle');
+    fireTransition('lifo', 'lifo_q', 'lifo_idle');
+
+    if (net.tokens('fifo_q') >= QUEUE_LIMIT || net.tokens('lifo_q') >= QUEUE_LIMIT) // отбрасывание
+  net.dropped++;
+
+  }
+
+  // попытка отпрпавления на обработку
+  function tryStartServices() {
+  for(let i=0;i<N_SERVERS;i++){
+    const busyKey = `fifo#${i}`;
+    const busy = Object.values(net.inService).some(o=>o.key===busyKey);
+    if(!busy && net.isEnabled('T_fifo_start')){
+      net.fire('T_fifo_start');
+      const tokId = 'req'+(net.nextId+Math.random()).toString(36).slice(2);
+      net.inService[tokId] = {remaining: serviceTime(), type:'FIFO', serverIdx:i, key:busyKey, reqId:tokId};
+      fireTransition('fifo','fifo_idle','fifo_inservice');
+    }
+  }
+
+  for(let i=0;i<N_SERVERS;i++){
+    const busyKey = `lifo#${i}`;
+    const busy = Object.values(net.inService).some(o=>o.key===busyKey);
+    if(!busy && net.isEnabled('T_lifo_start')){
+      net.fire('T_lifo_start');
+      const tokId = 'req'+(net.nextId+Math.random()).toString(36).slice(2);
+      net.inService[tokId] = {remaining: serviceTime(), type:'LIFO', serverIdx:i, key:busyKey, reqId:tokId};
+      fireTransition('lifo','lifo_idle','lifo_inservice');
+    }
+  }
+}
+
+
+  // обработка заявки
+  function progressInService(dt) {
+  const finished = [];
+  for(const id in net.inService){
+    const s = net.inService[id];
+    s.remaining -= dt;
+    if(s.remaining <= 0) finished.push(id);
+  }
+  for(const id of finished){
+    const s = net.inService[id];
+    if(s.type === 'FIFO'){
+      net.fire('T_fifo_finish');
+      fireTransition('fifo','fifo_inservice','done');
+      net.doneFifo++;
+    } else {
+      net.fire('T_lifo_finish');
+      fireTransition('lifo','lifo_inservice','done');
+      net.doneLifo++;
+    }
+    delete net.inService[id];
+  }
+}
+
+  let sim = null;
+
+  function resetSim(){
+    if(sim && sim.running) stopSim();
+    sim = {
+      state: 'ready',
+      time: 0,
+      running: false,
+      rngCounter: 0
+    };
+    buildNet();
+    updateViews();
+    arrivedEl.textContent = '0';
+    doneFifoEl.textContent = '0';
+    doneLifoEl.textContent = '0';
+    automatState.textContent = 'Состояние: ready';
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.data.datasets[1].data = [];
+    chart.update();
+  }
+
+// основной цикл симуляции
+  function tick(dt) {
+    sim.time += dt;
+
+    if(!net.nextArrivalTime || net.nextArrivalTime <= sim.time){
+      while(!net.nextArrivalTime || net.nextArrivalTime <= sim.time){
+        fireArrival();
+        scheduleNextArrival();
+      }
+    }
+    tryStartServices();
+    progressInService(dt);
+
+    arrivedEl.textContent = net.arrived;
+    doneFifoEl.textContent = net.doneFifo;
+    doneLifoEl.textContent = net.doneLifo;
+
+    updateViews();
+    const totalFifo = net.tokens('fifo_q') + net.tokens('fifo_inservice');
+    const totalLifo = net.tokens('lifo_q') + net.tokens('lifo_inservice');
+    pushChart(sim.time, totalFifo, totalLifo);
+    document.getElementById('dropped').textContent = net.dropped;
+    renderMatrices(net);
+  }
+
+  const automatState = document.createElement('div');
+  automatState.className='small';
+  automatState.style.marginTop='6px';
+  document.querySelectorAll('.machine')[0].insertBefore(automatState, document.querySelectorAll('.machine')[0].children[1]);
+  function setSystemState(newState){
+    const valid = {
+      ready: ['working'],
+      working: ['stopped', 'reset'],
+      stopped: ['working', 'reset'],
+      reset: ['ready']
+    };
+    const s = sim.state;
+
+    if(!valid[s] || !valid[s].includes(newState)){
+      console.warn(`Недопустимый переход ${s} → ${newState}`);
+      return;
+    }
+    sim.state = newState;
+    automatState.textContent = 'Состояние: ' + newState;
+
+    switch(newState){
+      case 'ready':
+        sim.running = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        break;
+      case 'working':
+        sim.running = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        break;
+      case 'stopped':
+        sim.running = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        break;
+      case 'reset':
+        resetSim();
+        return;
+    }
+  }
+
+  // обновление интерфейса
+  function updateViews(){
+    qFifo.textContent = net.tokens('fifo_q');
+    qLifo.textContent = net.tokens('lifo_q');
+
+    for(let i=0;i<N_SERVERS;i++){
+      const elF = document.getElementById('serversFifo-s' + i);
+      const elL = document.getElementById('serversLifo-s' + i);
+      const busyF = Object.values(net.inService).some(o=>o.type==='FIFO' && o.serverIdx===i);
+      const busyL = Object.values(net.inService).some(o=>o.type==='LIFO' && o.serverIdx===i);
+      if(elF){
+        const st = elF.querySelector('.state');
+        st.textContent = busyF ? 'busy' : 'ready';
+        st.style.color = busyF ? 'crimson' : 'green';
+      }
+      if(elL){
+        const st = elL.querySelector('.state');
+        st.textContent = busyL ? 'busy' : 'ready';
+        st.style.color = busyL ? 'crimson' : 'green';
+      }
+    }
+
+    drawPetriNet();
+
+      const mEl = document.getElementById('marking');
+  const entries = Object.entries(net.places)
+    .map(([k,v]) => `${k.padEnd(16, ' ')} = ${v}`)
+    .join('<br>');
+  mEl.innerHTML = `<b>Текущая маркировка:</b><br>${entries}`;
+  }
+
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[
+        {label:'FIFO загруженность', data:[], fill:false, borderWidth:2, tension:0.25},
+        {label:'LIFO загруженность', data:[], fill:false, borderWidth:2, tension:0.25}
+      ]
+    },
+    options:{
+      animation:false,
+      scales:{x:{title:{display:true,text:'t (s)'}}, y:{title:{display:true,text:'Заявки в системе'}}}
+    }
+  });
+  function pushChart(t, v1, v2){
+    const labels = chart.data.labels;
+    labels.push(t.toFixed(1));
+    chart.data.datasets[0].data.push(v1);
+    chart.data.datasets[1].data.push(v2);
+    if(labels.length>200){ labels.shift(); chart.data.datasets[0].data.shift(); chart.data.datasets[1].data.shift(); }
+    chart.update('none');
+  }
+
+  function resizePNCanvas(){
+    pnCanvas.width = pnCanvas.clientWidth * devicePixelRatio;
+    pnCanvas.height = pnCanvas.clientHeight * devicePixelRatio;
+    pnCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  window.addEventListener('resize', resizePNCanvas);
+
+  function drawPetriNet(){
+  resizePNCanvas();
+  const ctx = pnCtx;
+  const w = pnCanvas.clientWidth;
+  const h = pnCanvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  const places = [
+    {name:'fifo_q', x:80, y:40, label:'FIFO очередь'},
+    {name:'lifo_q', x:80, y:120, label:'LIFO очередь'},
+    {name:'fifo_idle', x:300, y:40, label:'FIFO idle'},
+    {name:'lifo_idle', x:300, y:120, label:'LIFO idle'},
+    {name:'fifo_inservice', x:520, y:40, label:'FIFO inSvc'},
+    {name:'lifo_inservice', x:520, y:120, label:'LIFO inSvc'},
+    {name:'done', x:680, y:80, label:'done'}
+  ];
+
+  for (const p of places)
+    drawPlace(ctx, p.x, p.y, p.label, net.tokens(p.name));
+
+  const arrows = [
+    {x1:170, y1:40, x2:260, y2:40, from:'fifo_q', to:'fifo_idle'},
+    {x1:170, y1:120, x2:260, y2:120, from:'lifo_q', to:'lifo_idle'},
+    {x1:380, y1:40, x2:500, y2:40, from:'fifo_idle', to:'fifo_inservice'},
+    {x1:380, y1:120, x2:500, y2:120, from:'lifo_idle', to:'lifo_inservice'},
+    {x1:600, y1:40, x2:660, y2:70, from:'fifo_inservice', to:'done'},
+    {x1:600, y1:120, x2:660, y2:90, from:'lifo_inservice', to:'done'}
+  ];
+
+  for (const a of arrows)
+    drawTransitionArrow(ctx, a.x1, a.y1, a.x2, a.y2);
+
+  updateMovingTokens(ctx);
+
+  ctx.fillStyle = '#333';
+  ctx.font = '12px system-ui, Arial';
+  ctx.fillText(`arrived: ${net.arrived}`, 10, h - 30);
+  ctx.fillText(`fifo done: ${net.doneFifo}`, 120, h - 30);
+  ctx.fillText(`lifo done: ${net.doneLifo}`, 260, h - 30);
+  ctx.fillText(`active services: ${Object.keys(net.inService).length}`, 420, h - 30);
+}
+
+const transitionCoords = {
+  'fifo_q_fifo_idle': {x1:170,y1:40,x2:260,y2:40},
+  'lifo_q_lifo_idle': {x1:170,y1:120,x2:260,y2:120},
+  'fifo_idle_fifo_inservice': {x1:380,y1:40,x2:500,y2:40},
+  'lifo_idle_lifo_inservice': {x1:380,y1:120,x2:500,y2:120},
+  'fifo_inservice_done': {x1:600,y1:40,x2:660,y2:70},
+  'lifo_inservice_done': {x1:600,y1:120,x2:660,y2:90}
+};
+
+function fireTransition(type, from, to) {
+  const transList = transitionMatrix[type];
+  const t = transList.find(t => t.from === from && t.to === to);
+  if (!t) return;
+  const key = `${from}_${to}`;
+  const coords = transitionCoords[key];
+  if (!coords) return;
+
+  movingTokens.push({
+    ...coords,
+    start: performance.now(),
+    duration: 800,
+    color: t.color
+  });
+}
+
+const movingTokens = [];
+
+function spawnMovingToken(from, to, color) {
+  const links = {
+    fifo_q_fifo_idle: {x1:170,y1:40,x2:260,y2:40},
+    lifo_q_lifo_idle: {x1:170,y1:120,x2:260,y2:120},
+    fifo_idle_fifo_inservice: {x1:380,y1:40,x2:500,y2:40},
+    lifo_idle_lifo_inservice: {x1:380,y1:120,x2:500,y2:120},
+    fifo_inservice_done: {x1:600,y1:40,x2:660,y2:70},
+    lifo_inservice_done: {x1:600,y1:120,x2:660,y2:90}
+  };
+  const key = `${from}_${to}`;
+  const a = links[key];
+  if(!a) return;
+  movingTokens.push({
+    ...a,
+    start: performance.now(),
+    duration: 800,
+    color
+  });
+}
+
+function updateMovingTokens(ctx){
+  const now = performance.now();
+  for(let i=movingTokens.length-1;i>=0;i--){
+    const t = movingTokens[i];
+    const prog = (now - t.start) / t.duration;
+    if(prog >= 1){ movingTokens.splice(i,1); continue; }
+    const x = t.x1 + (t.x2 - t.x1) * prog;
+    const y = t.y1 + (t.y2 - t.y1) * prog;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI*2);
+    ctx.fillStyle = t.color;
+    ctx.fill();
+  }
+}
+
+
+  function pixelRatio(){ return devicePixelRatio || 1; }
+
+  function drawPlace(ctx, x, y, label, tokens){
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, 28, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#000';
+  ctx.font = '12px system-ui, Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, y - 36);
+
+  const r = 4; 
+  const max = Math.min(tokens, 8); 
+  const angleStep = Math.PI * 2 / Math.max(max, 1);
+  ctx.fillStyle = '#333';
+  for (let i = 0; i < max; i++) {
+    const ang = i * angleStep;
+    const px = x + Math.cos(ang) * 12;
+    const py = y + Math.sin(ang) * 12;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.font = '14px system-ui, Arial';
+  ctx.fillText(tokens.toString(), x, y + 6);
+}
+
+  function drawTransitionArrow(ctx, x1, y1, x2, y2){
+    ctx.strokeStyle = '#777';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    const ang = Math.atan2(y2-y1,x2-x1);
+    const ax = x2 - Math.cos(ang)*8;
+    const ay = y2 - Math.sin(ang)*8;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(ax - Math.sin(ang)*4, ay + Math.cos(ang)*4);
+    ctx.lineTo(ax + Math.sin(ang)*4, ay - Math.cos(ang)*4);
+    ctx.closePath();
+    ctx.fillStyle = '#777';
+    ctx.fill();
+  }
+
+  function renderMatrices(net) {
+  const tbl = document.getElementById('matrixTable');
+  if (!tbl) return;
+  tbl.innerHTML = ''; 
+
+  const header = ['Место', ...net.transitions];
+  const makeRow = (cells, tag = 'td') => `<tr>${cells.map(c=>`<${tag}>${c}</${tag}>`).join('')}</tr>`;
+
+  // заголовок
+  tbl.innerHTML += makeRow(header, 'th');
+
+  // матрица входов D⁻
+  for (const p of net.placeList) {
+    const row = [p, ...net.transitions.map(t => net.inputMatrix[p][t])];
+    tbl.innerHTML += makeRow(row);
+  }
+  tbl.innerHTML += `<tr><td colspan="${header.length}" style="background:#ddd"></td></tr>`;
+
+  // матрица выходов D⁺
+  for (const p of net.placeList) {
+    const row = [p, ...net.transitions.map(t => net.outputMatrix[p][t])];
+    tbl.innerHTML += makeRow(row);
+  }
+  tbl.innerHTML += `<tr><td colspan="${header.length}" style="background:#ddd"></td></tr>`;
+
+  const mRow = ['μ (текущее)', ...net.placeList.map(p => `${p}:${net.tokens(p)}`)];
+  tbl.innerHTML += `<tr><td colspan="${header.length}" style="font-weight:bold">${mRow.join(' | ')}</td></tr>`;
+
+  const enabledRow = ['Разрешён', ...net.transitions.map(t => net.isEnabled(t) ? '✔' : '—')];
+  tbl.innerHTML += makeRow(enabledRow);
+
+  tbl.innerHTML += `<tr><td colspan="${header.length}" style="background:#ddd"></td></tr>`;
+for (const p of net.placeList) {
+  const row = [p, ...net.transitions.map(t =>
+    net.outputMatrix[p][t] - net.inputMatrix[p][t]
+  )];
+  tbl.innerHTML += makeRow(row);
+}
+
+}
+
+
+  let loopTimer = null;
+  function startSim(){
+    if(!sim) resetSim();
+
+    if(sim.state === 'ready' || sim.state === 'stopped'){
+      setSystemState('working');
+      if(!net.nextArrivalTime || net.nextArrivalTime <= sim.time)
+        scheduleNextArrival();
+
+      let last = performance.now();
+      function step(){
+        if(sim.state !== 'working') return;
+        const now = performance.now();
+        const realDtMs = now - last;
+        last = now;
+        const speed = parseFloat(speedEl.value);
+        const simDtSec = (realDtMs / 1000) * speed;
+        const maxStep = 0.5;
+        let rem = simDtSec;
+        while(rem > 1e-9){
+          const d = Math.min(rem, maxStep);
+          tick(d);
+          rem -= d;
+        }
+        loopTimer = requestAnimationFrame(step);
+      }
+      loopTimer = requestAnimationFrame(step);
+    }
+  }
+
+  function stopSim(){
+    if(sim.state !== 'working') return;
+    setSystemState('stopped');
+    if(loopTimer) cancelAnimationFrame(loopTimer);
+  }
+
+  // ==== init ====
+  resetBtn.onclick = ()=> setSystemState('reset');
+  startBtn.onclick = ()=> startSim();
+  stopBtn.onclick = ()=> stopSim();
+  resetSim();
+
+  window.addEventListener('beforeunload', ()=>{ stopSim(); });
+
+})();
+</script>
+</body>
+</html>

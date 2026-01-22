@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Сеть Петри: Автомат-продавец (Вариант 1)</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 20px 0;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        canvas {
+            border: 2px solid #8c2eff;
+            background-color: #ffffff;
+            margin: 20px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            font-size: 16px;
+            background-color: #8c2eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #7a1fe6;
+        }
+        #status {
+            margin: 15px 0;
+            font-weight: bold;
+            color: #333;
+            font-size: 18px;
+        }
+        #rulesPanel {
+            max-width: 900px;
+            width: 100%;
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #8c2eff;
+            background-color: #f0e6ff;
+            border-radius: 8px;
+            color: #000;
+            font-size: 16px;
+            text-align: left;
+        }
+        #rulesPanel h2 {
+            text-align: center;
+            color: #5e1ab3;
+            margin-top: 0;
+        }
+        .columns {
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+            margin: 20px 0;
+        }
+        .column {
+            flex: 1;
+        }
+        .column strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 17px;
+        }
+        #rulesPanel table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+        }
+        #rulesPanel table, #rulesPanel th, #rulesPanel td {
+            border: 1px solid #8c2eff;
+        }
+        #rulesPanel th {
+            background-color: #d8c4ff;
+            padding: 12px;
+        }
+        #rulesPanel th, #rulesPanel td {
+            padding: 10px;
+            text-align: center;
+        }
+        #rulesPanel ul {
+            padding-left: 20px;
+            margin: 8px 0;
+        }
+        #rulesPanel p {
+            text-align: left;
+            margin: 15px 0;
+        }
+        .buttons-container {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Сети Петри для автомата-продавца (Вариант 1)</h1>
+
+    <div id="rulesPanel">
+        <div class="columns">
+            <div class="column">
+                <strong>Условия системы:</strong>
+                <ul>
+                    <li>а) автомат-продавец ждёт;</li>
+                    <li>б) заказ прибыл и ждёт;</li>
+                    <li>в) автомат-продавец выполняет заказ;</li>
+                    <li>г) заказ выполнен.</li>
+                </ul>
+            </div>
+            <div class="column">
+                <strong>События системы:</strong>
+                <ul>
+                    <li>1. Заказ поступил.</li>
+                    <li>2. Автомат-продавец начинает выполнение заказа.</li>
+                    <li>3. Автомат-продавец заканчивает выполнение заказа.</li>
+                    <li>4. Заказ посылается на доставку.</li>
+                </ul>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Событие</th>
+                    <th>Предусловия</th>
+                    <th>Постусловия</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>нет</td>
+                    <td>б</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>а, б</td>
+                    <td>в</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>в</td>
+                    <td>г, а</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>г</td>
+                    <td>нет</td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+
+    <canvas id="petriCanvas" width="800" height="400"></canvas>
+
+    <div class="buttons-container">
+        <button onclick="fireTransition(0)">Событие 1: Заказ поступил</button>
+        <button onclick="fireTransition(1)">Событие 2: Начать выполнение</button>
+        <button onclick="fireTransition(2)">Событие 3: Закончить выполнение</button>
+        <button onclick="fireTransition(3)">Событие 4: Послать на доставку</button>
+        <button onclick="resetNet()">Сбросить</button>
+    </div>
+
+    <div id="status">Статус: Готово к симуляции.</div>
+
+    <script>
+        // Позиции сети Петри — состояния автомата
+        let places = [
+            {x: 100, y: 200, label: 'a (ждёт)', tokens: 1},     // 0: автомат свободен (начальное состояние)
+            {x: 300, y: 100, label: 'б (заказ ждёт)', tokens: 0}, // 1: заказ в очереди
+            {x: 500, y: 200, label: 'в (выполняет)', tokens: 0},  // 2: автомат занят выполнением
+            {x: 700, y: 100, label: 'г (выполнен)', tokens: 0}    // 3: заказ готов к отправке
+        ];
+        // Условия перехода
+        let transitions = [
+            {x: 200, y: 200, label: '1', pre: [], post: [1]},           // 1: заказ поступил → добавляем в б
+            {x: 400, y: 200, label: '2', pre: [0, 1], post: [2]},       // 2: начать выполнение (если a и б) → в
+            {x: 600, y: 200, label: '3', pre: [2], post: [3, 0]},        // 3: закончить → г и вернуть a
+            {x: 700, y: 300, label: '4', pre: [3], post: []}             // 4: отправить → убрать г (очистка)
+        ];
+        const canvas = document.getElementById('petriCanvas');
+        const ctx = canvas.getContext('2d');
+        // Отрисовка графа сети Петри
+        function drawNet() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Позиции (круги) + фишки
+            places.forEach((p, i) => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 30, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.fillText(p.label, p.x - 50, p.y - 40);
+                if (p.tokens > 0) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 10, 0, 2 * Math.PI);
+                    ctx.fill();
+                    if (p.tokens > 1) ctx.fillText(p.tokens, p.x + 15, p.y - 15);
+                }
+            });
+            // Переходы (чёрные прямоугольники)
+            transitions.forEach(t => {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(t.x - 20, t.y - 10, 40, 20);
+                ctx.fillStyle = 'white';
+                ctx.fillText(t.label, t.x - 5, t.y + 5);
+                ctx.fillStyle = 'black';
+            });
+            // Дуги
+            transitions.forEach(t => {
+                t.pre.forEach(pi => drawArrow(places[pi].x, places[pi].y, t.x, t.y));
+                t.post.forEach(pi => drawArrow(t.x, t.y, places[pi].x, places[pi].y));
+            });
+        }
+        function drawArrow(fromX, fromY, toX, toY) {
+            const headlen = 10;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+        // Запуск перехода: проверка предусловий и смена состояния (маркировки)
+        function fireTransition(tIndex) {
+            const t = transitions[tIndex];
+            let canFire = true;
+            t.pre.forEach(pi => {
+                if (places[pi].tokens < 1) canFire = false;
+            });
+            if (!canFire) {
+                document.getElementById('status').innerText =
+                    'Статус: Переход ' + t.label + ' не может запуститься (нет фишек в предусловиях).';
+                return;
+            }
+            // Изменение маркировки: реализация перехода конечного автомата
+            t.pre.forEach(pi => places[pi].tokens--);
+            t.post.forEach(pi => places[pi].tokens++);
+            drawNet();
+            document.getElementById('status').innerText =
+                'Статус: Переход ' + t.label + ' запущен успешно.';
+        }
+        // Сброс в начальное состояние
+        function resetNet() {
+            places[0].tokens = 1;
+            places[1].tokens = places[2].tokens = places[3].tokens = 0;
+            drawNet();
+            document.getElementById('status').innerText = 'Статус: Сеть сброшена.';
+        }
+        // Инициализация графа
+        drawNet();
+    </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+﻿<Window x:Class="TrafficLightFSM.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Светофор HFSM" Height="550" Width="300">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,10">
+            <Ellipse x:Name="RedLight" Width="80" Height="80" Fill="DarkRed" Margin="5"/>
+            <Ellipse x:Name="YellowLight" Width="80" Height="80" Fill="DarkGoldenrod" Margin="5"/>
+            <Ellipse x:Name="GreenLight" Width="80" Height="80" Fill="DarkGreen" Margin="5"/>
+        </StackPanel>
+
+        <TextBlock x:Name="StateInfo" Grid.Row="1" Text="Состояние: Off" FontWeight="Bold" HorizontalAlignment="Center" Margin="5"/>
+        <TextBlock x:Name="SubStateInfo" Grid.Row="2" Text="Подсостояние: -" HorizontalAlignment="Center" Margin="5"/>
+        <TextBlock x:Name="TimerInfo" Grid.Row="3" Text="Таймер: 0 сек" HorizontalAlignment="Center" Margin="5"/>
+        <ProgressBar x:Name="ProgressTimer" Grid.Row="4" Height="20" Minimum="0" Maximum="10" Value="0" Margin="10,10"/>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
+            <Button Content="Старт" Width="80" Margin="5" Click="StartButton_Click"/>
+            <Button Content="Стоп" Width="80" Margin="5" Click="StopButton_Click"/>
+            <Button Content="Аварийный режим" Width="100" Margin="5" Click="EmergencyButton_Click"/>
+        </StackPanel>
+
+     
+        
+        <Button x:Name="ToggleFlashingButton" Grid.Row="6" Content="Режим: Мигание после красного (вкл)" 
+                HorizontalAlignment="Center" Width="260" Margin="10" 
+                Click="ToggleFlashingMode_Click" FontWeight="Bold"/>
+    </Grid>
+</Window>
